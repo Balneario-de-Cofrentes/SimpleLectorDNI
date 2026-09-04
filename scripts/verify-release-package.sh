@@ -8,6 +8,8 @@ test -f "$package_dir/engine/simple-lector-dni-engine.jar"
 test -f "$package_dir/runtime/bin/java" || test -f "$package_dir/runtime/bin/java.exe"
 test -f "$package_dir/LICENSE"
 test -f "$package_dir/THIRD_PARTY_NOTICES.md"
+test -f "$package_dir/THIRD_PARTY_LICENSES.md"
+test -f "$package_dir/README.md"
 test -f "$package_dir/protocol/engine-v1.schema.json"
 
 if test -x "$package_dir/simple-lector-dni"; then

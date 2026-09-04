@@ -23,8 +23,7 @@ mkdir -p "$package_dir/engine" "$package_dir/protocol"
 cp target/release/simple-lector-dni "$package_dir/simple-lector-dni"
 cp engine/jmulticard-worker/target/simple-lector-dni-engine.jar "$package_dir/engine/"
 cp protocol/engine-v1.schema.json "$package_dir/protocol/"
-cp LICENSE THIRD_PARTY_NOTICES.md "$package_dir/"
-if test -f README.md; then cp README.md "$package_dir/"; fi
+cp README.md LICENSE THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.md "$package_dir/"
 
 "$JAVA_HOME/bin/jlink" \
   --add-modules java.base,java.desktop,java.logging,java.naming,java.smartcardio,java.sql,jdk.crypto.ec \

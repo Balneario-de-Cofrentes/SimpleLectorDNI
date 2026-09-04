@@ -19,8 +19,7 @@ New-Item -ItemType Directory -Force -Path "$PackageDir/engine", "$PackageDir/pro
 Copy-Item target/release/simple-lector-dni.exe "$PackageDir/simple-lector-dni.exe"
 Copy-Item engine/jmulticard-worker/target/simple-lector-dni-engine.jar "$PackageDir/engine/"
 Copy-Item protocol/engine-v1.schema.json "$PackageDir/protocol/"
-Copy-Item LICENSE, THIRD_PARTY_NOTICES.md $PackageDir
-if (Test-Path README.md) { Copy-Item README.md $PackageDir }
+Copy-Item README.md, LICENSE, THIRD_PARTY_NOTICES.md, THIRD_PARTY_LICENSES.md $PackageDir
 
 & "$env:JAVA_HOME/bin/jlink.exe" `
     --add-modules java.base,java.desktop,java.logging,java.naming,java.smartcardio,java.sql,jdk.crypto.ec `

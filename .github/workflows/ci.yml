@@ -61,6 +61,10 @@ jobs:
         shell: bash
         run: scripts/check-no-biometric-access.sh
 
+      - name: Validate documentation and privacy guardrails
+        if: matrix.name == 'macOS Apple Silicon'
+        run: scripts/check-docs-and-privacy.sh
+
       - name: Package macOS
         if: matrix.package == 'sh'
         env:
