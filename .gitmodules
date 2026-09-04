@@ -1,0 +1,3 @@
+[submodule "vendor/jmulticard"]
+	path = vendor/jmulticard
+	url = https://github.com/ctt-gob-es/jmulticard.git
