@@ -1,4 +1,5 @@
 //! Public library surface for SimpleLectorDNI.
 
 pub mod engine_protocol;
+pub mod lifecycle;
 pub mod model;
