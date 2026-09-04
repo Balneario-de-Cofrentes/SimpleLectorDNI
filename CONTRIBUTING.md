@@ -7,7 +7,7 @@ Gracias por ayudar a que la lectura de DNIe sea accesible e integrable. Ningún 
 - Rust 1.88 o posterior
 - JDK 21
 - Maven 3.9
-- `jq`, `zip` y `jlink` para empaquetar en macOS
+- `jq`, `zip`, `ripgrep` y `jlink` para empaquetar en macOS
 - PowerShell y `jlink` para empaquetar en Windows
 
 ```sh
