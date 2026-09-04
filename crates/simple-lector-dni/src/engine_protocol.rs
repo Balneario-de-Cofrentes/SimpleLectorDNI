@@ -45,7 +45,7 @@ pub struct EngineError {
 pub enum EngineResponse {
     Ok {
         protocol: u8,
-        document: DocumentData,
+        document: Box<DocumentData>,
         integrity: IntegrityResult,
     },
     Error {
