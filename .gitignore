@@ -1,0 +1,27 @@
+# Development worktrees.
+.worktrees/
+
+# Rust and Java build products.
+target/
+**/target/
+*.class
+
+# Local prototypes kept outside the public project.
+/DniFullReader.java
+/probe_pcsc
+/probe_pcsc.c
+
+# Identity data extracted from physical documents. Keep it local.
+/dni.json
+/*.dni.json
+/*.csv
+/*.jsonl
+/*.raw
+/*.pem
+/data/
+/output/
+
+# IDE and operating-system files.
+.DS_Store
+.idea/
+.vscode/
