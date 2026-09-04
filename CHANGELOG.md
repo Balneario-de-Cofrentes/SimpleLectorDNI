@@ -15,6 +15,7 @@ Los cambios relevantes de este proyecto se documentan aquí. El formato sigue Ke
 
 ### Añadido
 
+- Crate `simple-lector-dni-tauri` con la sesión en hilo, los eventos `progress`/`read`/`session_ended`, ajustes JSON y secretos en el llavero, compartida por la app de escritorio y por apps privadas.
 - App de escritorio Tauri 2 en `apps/desktop`: estado de la sesión, última lectura en pantalla sin persistencia, webhook con token en el llavero del sistema, y `scripts/package-desktop.sh` para el bundle.
 - Progreso en stderr, en castellano, con lector, tarjeta, intento y salida fallida; la salida estándar sigue siendo solo JSON.
 - `once --timeout-seconds`.

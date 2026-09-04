@@ -1,0 +1,19 @@
+[package]
+name = "simple-lector-dni-tauri"
+version = "0.1.0"
+description = "Piezas Tauri reutilizables sobre simple-lector-dni: sesión en un hilo, eventos a la ventana, ajustes y llavero"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+keyring = { version = "4.2", features = ["apple-native-keyring-store", "windows-native-keyring-store"] }
+serde.workspace = true
+serde_json.workspace = true
+simple-lector-dni = { path = "../simple-lector-dni" }
+tauri = { version = "2.11", features = [] }
+
+[dev-dependencies]
+tempfile = "3.10"

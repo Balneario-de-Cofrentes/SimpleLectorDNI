@@ -58,7 +58,7 @@ Sin una salida explícita se usa `--stdout`. Los ficheros creados son privados p
 
 `apps/desktop` es una ventana Tauri 2 sobre el mismo crate: muestra qué está haciendo la sesión, la última lectura y envía cada registro al webhook configurado. La lectura solo vive en la ventana; no se escribe en disco. El token del webhook se guarda en el llavero del sistema, nunca en un fichero. Se construye con `scripts/package-desktop.sh`, que empaqueta el runtime Java y el worker como recursos del bundle (DMG en macOS, MSI y NSIS en Windows).
 
-Las pantallas propias de un PMS concreto no forman parte de este repositorio: una app privada puede depender del crate y consumir los mismos eventos de progreso.
+Las pantallas propias de un PMS concreto no forman parte de este repositorio. La crate `simple-lector-dni-tauri` reúne lo reutilizable (sesión en un hilo con eventos a la ventana, ajustes JSON y secretos en el llavero) para que una app privada la use sin copiar nada.
 
 ## Comportamiento pensado para recepción
 

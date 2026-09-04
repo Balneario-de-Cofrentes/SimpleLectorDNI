@@ -3817,12 +3817,23 @@ dependencies = [
 name = "simple-lector-dni-desktop"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "simple-lector-dni",
+ "simple-lector-dni-tauri",
+ "tauri",
+ "tauri-build",
+]
+
+[[package]]
+name = "simple-lector-dni-tauri"
+version = "0.1.0"
+dependencies = [
  "keyring",
  "serde",
  "serde_json",
  "simple-lector-dni",
  "tauri",
- "tauri-build",
+ "tempfile",
 ]
 
 [[package]]
