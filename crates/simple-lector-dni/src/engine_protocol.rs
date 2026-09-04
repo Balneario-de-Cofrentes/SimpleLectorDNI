@@ -27,10 +27,10 @@ pub struct DocumentData {
     pub serial_chip: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct IntegrityResult {
-    pub sod_signature: VerificationStatus,
-    pub dg13_hash: VerificationStatus,
+    pub sod_signature: String,
+    pub dg13_hash: String,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -47,6 +47,25 @@ impl VerificationStatus {
             Self::Verified => "verified",
             Self::Unverified => "unverified",
         }
+    }
+}
+
+#[derive(Deserialize)]
+struct IntegrityResultWire {
+    sod_signature: VerificationStatus,
+    dg13_hash: VerificationStatus,
+}
+
+impl<'de> Deserialize<'de> for IntegrityResult {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = IntegrityResultWire::deserialize(deserializer)?;
+        Ok(Self {
+            sod_signature: wire.sod_signature.as_str().to_owned(),
+            dg13_hash: wire.dg13_hash.as_str().to_owned(),
+        })
     }
 }
 

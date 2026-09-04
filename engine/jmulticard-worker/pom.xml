@@ -44,6 +44,9 @@
     <finalName>simple-lector-dni-engine</finalName>
     <testResources>
       <testResource>
+        <directory>${project.basedir}/src/test/resources</directory>
+      </testResource>
+      <testResource>
         <directory>${project.basedir}/../../protocol/examples</directory>
       </testResource>
     </testResources>

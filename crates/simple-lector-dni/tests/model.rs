@@ -1,5 +1,5 @@
 use chrono::DateTime;
-use simple_lector_dni::engine_protocol::{DocumentData, IntegrityResult, VerificationStatus};
+use simple_lector_dni::engine_protocol::{DocumentData, IntegrityResult};
 use simple_lector_dni::model::{READ_SCHEMA_VERSION, ReadRecord};
 use uuid::Uuid;
 
@@ -13,8 +13,8 @@ fn read_record_has_stable_versioned_envelope() {
         ..DocumentData::default()
     };
     let integrity = IntegrityResult {
-        sod_signature: VerificationStatus::Verified,
-        dg13_hash: VerificationStatus::Verified,
+        sod_signature: "verified".to_owned(),
+        dg13_hash: "verified".to_owned(),
     };
 
     let record = ReadRecord::new(
@@ -43,8 +43,8 @@ fn absent_document_values_stay_empty_for_csv_compatibility() {
         "reader".to_owned(),
         DocumentData::default(),
         IntegrityResult {
-            sod_signature: VerificationStatus::Unverified,
-            dg13_hash: VerificationStatus::Unverified,
+            sod_signature: "unverified".to_owned(),
+            dg13_hash: "unverified".to_owned(),
         },
     );
 

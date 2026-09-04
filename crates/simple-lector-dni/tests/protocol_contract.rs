@@ -1,6 +1,4 @@
-use simple_lector_dni::engine_protocol::{
-    DocumentData, EngineRequest, EngineResponse, VerificationStatus,
-};
+use simple_lector_dni::engine_protocol::{DocumentData, EngineRequest, EngineResponse};
 
 const SUCCESS_RESPONSE: &str = include_str!("../../../protocol/examples/success.json");
 const PROTOCOL_SCHEMA: &str = include_str!("../../../protocol/engine-v1.schema.json");
@@ -29,7 +27,7 @@ fn protocol_contract() {
     assert_eq!(protocol, 1);
     assert_eq!(document.nombre, "ANA");
     assert_eq!(document.dni, "00000000T");
-    assert_eq!(integrity.dg13_hash, VerificationStatus::Verified);
+    assert_eq!(integrity.dg13_hash, "verified");
 
     let empty = DocumentData::default();
     assert!(empty.direccion.is_empty());
@@ -48,9 +46,51 @@ fn document_fields_match_schema_and_shared_fixture() {
     let fixture: serde_json::Value = serde_json::from_str(SUCCESS_RESPONSE).unwrap();
     let rust_model = serde_json::to_value(DocumentData::default()).unwrap();
 
-    let expected = sorted_strings(&schema["$defs"]["document"]["required"]);
+    let document = &schema["$defs"]["document"];
+    assert_object_contract(&fixture["document"], document);
+    assert_string_properties(&fixture["document"], document);
+
+    let expected = sorted_strings(&document["required"]);
     assert_eq!(sorted_keys(&fixture["document"]), expected);
     assert_eq!(sorted_keys(&rust_model), expected);
+}
+
+#[test]
+fn shared_fixture_matches_success_and_integrity_schema() {
+    let schema: serde_json::Value = serde_json::from_str(PROTOCOL_SCHEMA).unwrap();
+    let fixture: serde_json::Value = serde_json::from_str(SUCCESS_RESPONSE).unwrap();
+    let success = &schema["$defs"]["success"];
+    let integrity = &schema["$defs"]["integrity"];
+
+    assert_object_contract(&fixture, success);
+    assert_eq!(
+        fixture["protocol"],
+        success["properties"]["protocol"]["const"]
+    );
+    assert_eq!(fixture["status"], success["properties"]["status"]["const"]);
+    assert_object_contract(&fixture["integrity"], integrity);
+    assert_enum_properties(&fixture["integrity"], integrity);
+}
+
+fn assert_object_contract(value: &serde_json::Value, definition: &serde_json::Value) {
+    let required = sorted_strings(&definition["required"]);
+    assert_eq!(sorted_keys(value), required);
+    assert_eq!(sorted_keys(&definition["properties"]), required);
+    assert_eq!(definition["additionalProperties"], false);
+}
+
+fn assert_string_properties(value: &serde_json::Value, definition: &serde_json::Value) {
+    for (name, property) in definition["properties"].as_object().unwrap() {
+        assert_eq!(property["type"], "string", "schema type for {name}");
+        assert!(value[name].is_string(), "fixture type for {name}");
+    }
+}
+
+fn assert_enum_properties(value: &serde_json::Value, definition: &serde_json::Value) {
+    for (name, property) in definition["properties"].as_object().unwrap() {
+        let allowed = property["enum"].as_array().unwrap();
+        assert!(allowed.contains(&value[name]), "fixture enum for {name}");
+    }
 }
 
 fn sorted_strings(value: &serde_json::Value) -> Vec<String> {

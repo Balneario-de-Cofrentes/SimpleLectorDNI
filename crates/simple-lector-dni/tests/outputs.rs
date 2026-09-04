@@ -7,7 +7,7 @@ use std::thread;
 use std::time::Duration;
 
 use chrono::DateTime;
-use simple_lector_dni::engine_protocol::{DocumentData, IntegrityResult, VerificationStatus};
+use simple_lector_dni::engine_protocol::{DocumentData, IntegrityResult};
 use simple_lector_dni::model::ReadRecord;
 use simple_lector_dni::output::{
     CsvSink, JsonFileSink, JsonLinesSink, OutputError, Sink, WebhookSink, deliver_all,
@@ -27,8 +27,8 @@ fn record(name: &str) -> ReadRecord {
             ..DocumentData::default()
         },
         IntegrityResult {
-            sod_signature: VerificationStatus::Verified,
-            dg13_hash: VerificationStatus::Verified,
+            sod_signature: "verified".to_owned(),
+            dg13_hash: "verified".to_owned(),
         },
     )
 }
