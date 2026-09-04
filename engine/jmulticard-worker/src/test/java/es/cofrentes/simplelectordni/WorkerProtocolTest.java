@@ -71,6 +71,18 @@ final class WorkerProtocolTest {
     }
 
     @Test
+    void endOfInputIsAnInvalidRequest() throws Exception {
+        final String response = Worker.handle(
+            null,
+            readerName -> { throw new AssertionError("reader must not be called"); }
+        );
+
+        final JsonNode json = JSON.readTree(response);
+        assertEquals("INVALID_REQUEST", json.path("error").path("code").asText());
+        assertFalse(json.path("error").path("retryable").asBoolean());
+    }
+
+    @Test
     void rejectsAnUnsupportedProtocolWithoutCallingTheReader() throws Exception {
         final String response = Worker.handle(
             "{\"protocol\":99,\"command\":\"read\",\"reader_name\":\"Synthetic reader\"}",

@@ -3,91 +3,209 @@
   "$id": "https://github.com/Balneario-de-Cofrentes/SimpleLectorDNI/protocol/engine-v1.schema.json",
   "title": "SimpleLectorDNI engine protocol v1",
   "oneOf": [
-    { "$ref": "#/$defs/request" },
-    { "$ref": "#/$defs/success" },
-    { "$ref": "#/$defs/error" }
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/success"
+    },
+    {
+      "$ref": "#/$defs/error"
+    }
   ],
   "$defs": {
     "request": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["protocol", "command", "reader_name"],
+      "required": [
+        "protocol",
+        "command",
+        "reader_name"
+      ],
       "properties": {
-        "protocol": { "const": 1 },
-        "command": { "const": "read" },
-        "reader_name": { "type": "string", "minLength": 1, "maxLength": 512 }
+        "protocol": {
+          "const": 1
+        },
+        "command": {
+          "const": "read"
+        },
+        "reader_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
       }
     },
     "document": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "nombre", "primer_apellido", "segundo_apellido", "apellidos",
-        "dni", "dni_formateado", "fecha_nacimiento", "nacionalidad",
-        "fecha_caducidad", "numero_soporte", "sexo", "ciudad_nacimiento",
-        "provincia_nacimiento", "pais_nacimiento", "nombres_progenitores",
-        "direccion", "localidad", "provincia", "pais", "version_dnie",
+        "nombre",
+        "primer_apellido",
+        "segundo_apellido",
+        "apellidos",
+        "dni",
+        "dni_formateado",
+        "fecha_nacimiento",
+        "nacionalidad",
+        "fecha_caducidad",
+        "numero_soporte",
+        "sexo",
+        "ciudad_nacimiento",
+        "provincia_nacimiento",
+        "pais_nacimiento",
+        "nombres_progenitores",
+        "direccion",
+        "localidad",
+        "provincia",
+        "pais",
+        "version_dnie",
         "serial_chip"
       ],
       "properties": {
-        "nombre": { "type": "string" },
-        "primer_apellido": { "type": "string" },
-        "segundo_apellido": { "type": "string" },
-        "apellidos": { "type": "string" },
-        "dni": { "type": "string" },
-        "dni_formateado": { "type": "string" },
-        "fecha_nacimiento": { "type": "string" },
-        "nacionalidad": { "type": "string" },
-        "fecha_caducidad": { "type": "string" },
-        "numero_soporte": { "type": "string" },
-        "sexo": { "type": "string" },
-        "ciudad_nacimiento": { "type": "string" },
-        "provincia_nacimiento": { "type": "string" },
-        "pais_nacimiento": { "type": "string" },
-        "nombres_progenitores": { "type": "string" },
-        "direccion": { "type": "string" },
-        "localidad": { "type": "string" },
-        "provincia": { "type": "string" },
-        "pais": { "type": "string" },
-        "version_dnie": { "type": "string" },
-        "serial_chip": { "type": "string" }
+        "nombre": {
+          "type": "string"
+        },
+        "primer_apellido": {
+          "type": "string"
+        },
+        "segundo_apellido": {
+          "type": "string"
+        },
+        "apellidos": {
+          "type": "string"
+        },
+        "dni": {
+          "type": "string"
+        },
+        "dni_formateado": {
+          "type": "string"
+        },
+        "fecha_nacimiento": {
+          "type": "string"
+        },
+        "nacionalidad": {
+          "type": "string"
+        },
+        "fecha_caducidad": {
+          "type": "string"
+        },
+        "numero_soporte": {
+          "type": "string"
+        },
+        "sexo": {
+          "type": "string"
+        },
+        "ciudad_nacimiento": {
+          "type": "string"
+        },
+        "provincia_nacimiento": {
+          "type": "string"
+        },
+        "pais_nacimiento": {
+          "type": "string"
+        },
+        "nombres_progenitores": {
+          "type": "string"
+        },
+        "direccion": {
+          "type": "string"
+        },
+        "localidad": {
+          "type": "string"
+        },
+        "provincia": {
+          "type": "string"
+        },
+        "pais": {
+          "type": "string"
+        },
+        "version_dnie": {
+          "type": "string"
+        },
+        "serial_chip": {
+          "type": "string"
+        }
       }
     },
     "integrity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["sod_signature", "dg13_hash"],
+      "required": [
+        "sod_signature",
+        "dg13_hash"
+      ],
       "properties": {
-        "sod_signature": { "enum": ["verified", "unverified"] },
-        "dg13_hash": { "enum": ["verified", "unverified"] }
+        "sod_signature": {
+          "enum": [
+            "verified"
+          ]
+        },
+        "dg13_hash": {
+          "enum": [
+            "verified"
+          ]
+        }
       }
     },
     "success": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["protocol", "status", "document", "integrity"],
+      "required": [
+        "protocol",
+        "status",
+        "document",
+        "integrity"
+      ],
       "properties": {
-        "protocol": { "const": 1 },
-        "status": { "const": "ok" },
-        "document": { "$ref": "#/$defs/document" },
-        "integrity": { "$ref": "#/$defs/integrity" }
+        "protocol": {
+          "const": 1
+        },
+        "status": {
+          "const": "ok"
+        },
+        "document": {
+          "$ref": "#/$defs/document"
+        },
+        "integrity": {
+          "$ref": "#/$defs/integrity"
+        }
       }
     },
     "error": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["protocol", "status", "error"],
+      "required": [
+        "protocol",
+        "status",
+        "error"
+      ],
       "properties": {
-        "protocol": { "const": 1 },
-        "status": { "const": "error" },
+        "protocol": {
+          "const": 1
+        },
+        "status": {
+          "const": "error"
+        },
         "error": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["code", "message", "retryable"],
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ],
           "properties": {
-            "code": { "type": "string" },
-            "message": { "type": "string" },
-            "retryable": { "type": "boolean" }
+            "code": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,64}$"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            }
           }
         }
       }

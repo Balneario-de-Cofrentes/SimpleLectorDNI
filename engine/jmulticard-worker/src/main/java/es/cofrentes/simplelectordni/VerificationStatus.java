@@ -2,9 +2,9 @@ package es.cofrentes.simplelectordni;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
+/** The only status the worker emits: a failed verification aborts the read with INTEGRITY_ERROR. */
 enum VerificationStatus {
-    VERIFIED("verified"),
-    UNVERIFIED("unverified");
+    VERIFIED("verified");
 
     private final String wireValue;
 

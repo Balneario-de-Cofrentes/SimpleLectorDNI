@@ -1,6 +1,8 @@
 package es.cofrentes.simplelectordni;
 
 import java.nio.charset.StandardCharsets;
+import java.security.SignatureException;
+import java.security.cert.CertificateException;
 import java.util.Arrays;
 
 import es.gob.jmulticard.DigestAlgorithm;
@@ -9,11 +11,17 @@ import es.gob.jmulticard.asn1.icao.DataGroupHash;
 import es.gob.jmulticard.asn1.icao.LdsSecurityObject;
 import es.gob.jmulticard.asn1.icao.OptionalDetails;
 import es.gob.jmulticard.asn1.icao.Sod;
+import es.gob.jmulticard.card.InvalidCardException;
 import es.gob.jmulticard.card.Location;
+import es.gob.jmulticard.card.dnie.BurnedDnieCardException;
 import es.gob.jmulticard.card.dnie.Dnie;
 import es.gob.jmulticard.card.dnie.Dnie3;
 import es.gob.jmulticard.card.dnie.DnieFactory;
+import es.gob.jmulticard.card.icao.Gender;
 import es.gob.jmulticard.connection.ApduConnectionProtocol;
+import es.gob.jmulticard.connection.CardNotPresentException;
+import es.gob.jmulticard.connection.NoReadersFoundException;
+import es.gob.jmulticard.connection.UnavailableReaderException;
 import es.gob.jmulticard.crypto.BcCryptoHelper;
 import es.gob.jmulticard.jse.smartcardio.SmartcardIoConnection;
 
@@ -29,11 +37,28 @@ final class Dg13Reader implements DniReader {
             throw e;
         }
         catch (final Exception e) {
-            throw new DniReadException(DniErrorCode.CARD_READ_FAILED, e);
+            throw new DniReadException(classify(e), e);
         }
         finally {
             closeQuietly(connection);
         }
+    }
+
+    /** Maps JMultiCard failures to protocol codes; deterministic failures are not retried. */
+    static DniErrorCode classify(final Throwable failure) {
+        if (failure instanceof InvalidCardException || failure instanceof BurnedDnieCardException) {
+            return DniErrorCode.UNSUPPORTED_CARD;
+        }
+        if (failure instanceof CardNotPresentException) {
+            return DniErrorCode.CARD_REMOVED;
+        }
+        if (failure instanceof NoReadersFoundException || failure instanceof UnavailableReaderException) {
+            return DniErrorCode.READER_NOT_FOUND;
+        }
+        if (failure instanceof SignatureException || failure instanceof CertificateException) {
+            return DniErrorCode.INTEGRITY_ERROR;
+        }
+        return DniErrorCode.CARD_READ_FAILED;
     }
 
     private static DniReadResult readConnected(
@@ -70,16 +95,22 @@ final class Dg13Reader implements DniReader {
     ) throws Exception {
         dnie.openSecureChannelIfNotAlreadyOpened(false);
         final OptionalDetails details = dnie.getDg13();
-        final DocumentData document = mapDocument(dnie, details);
+        final DocumentData document = mapDocument(
+            details,
+            () -> readDnieVersion(dnie),
+            () -> HexUtils.hexify(dnie.getSerialNumber(), false)
+        );
         final IntegrityResult integrity = verifyDg13(dnie, details.getBytes(), crypto);
         return new DniReadResult(document, integrity);
     }
 
-    private static DocumentData mapDocument(
-        final Dnie3 dnie,
-        final OptionalDetails details
-    ) {
+    static DocumentData mapDocument(
+        final OptionalDetails details,
+        final TextSupplier version,
+        final TextSupplier serial
+    ) throws DniReadException {
         final Dg13TextFields raw = Dg13TextFields.from(details.getBytes());
+        requireAlignedLayout(raw, details);
         final DocumentData value = new DocumentData();
         value.nombre = clean(details.getName());
         value.primer_apellido = clean(details.getFirstSurname());
@@ -87,21 +118,11 @@ final class Dg13Reader implements DniReader {
         value.apellidos = join(value.primer_apellido, value.segundo_apellido);
         value.dni_formateado = clean(details.getIdNumber());
         value.dni = normalizeDocumentNumber(value.dni_formateado);
-        value.fecha_nacimiento = raw.isoDateAt(5);
+        value.fecha_nacimiento = raw.isoDateAt(Dg13TextFields.BIRTH_DATE);
         value.nacionalidad = clean(details.getNationality());
-        value.fecha_caducidad = raw.isoDateAt(7);
-        mapAdditionalDetails(value, details);
-        value.version_dnie = optionalText(() -> readDnieVersion(dnie));
-        value.serial_chip = optionalText(() -> HexUtils.hexify(dnie.getSerialNumber(), false));
-        return value;
-    }
-
-    private static void mapAdditionalDetails(
-        final DocumentData value,
-        final OptionalDetails details
-    ) {
+        value.fecha_caducidad = raw.isoDateAt(Dg13TextFields.EXPIRY_DATE);
         value.numero_soporte = clean(details.getSupportNumber());
-        value.sexo = details.getSex() == null ? "" : details.getSex().toString();
+        value.sexo = mapSex(details.getSex());
         value.ciudad_nacimiento = clean(details.getBirthCity());
         value.provincia_nacimiento = clean(details.getBirthProvince());
         value.pais_nacimiento = clean(details.getBirthCountry());
@@ -110,6 +131,36 @@ final class Dg13Reader implements DniReader {
         value.localidad = clean(details.getCity());
         value.provincia = clean(details.getProvince());
         value.pais = clean(details.getCountry());
+        value.version_dnie = optionalText(version);
+        value.serial_chip = optionalText(serial);
+        return value;
+    }
+
+    /**
+     * JMultiCard splits DG13 without removing the DER header, so for some payload
+     * lengths its field indices shift by one. Both parsers must agree on the
+     * document number before any field is trusted.
+     */
+    private static void requireAlignedLayout(
+        final Dg13TextFields raw,
+        final OptionalDetails details
+    ) throws DniReadException {
+        final String expected = clean(details.getIdNumber());
+        if (expected.isEmpty() || !expected.equals(raw.textAt(Dg13TextFields.ID_NUMBER))) {
+            throw new DniReadException(DniErrorCode.DG13_LAYOUT);
+        }
+    }
+
+    /** Wire values are "M", "F" or empty; JMultiCard's {@code toString()} is Spanish prose. */
+    static String mapSex(final Gender gender) {
+        if (gender == null) {
+            return "";
+        }
+        return switch (gender) {
+            case MALE -> "M";
+            case FEMALE -> "F";
+            default -> "";
+        };
     }
 
     private static IntegrityResult verifyDg13(

@@ -9,7 +9,18 @@ import java.util.Arrays;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
+/**
+ * Splits the DG13 value into its text fields after removing the DER header.
+ *
+ * JMultiCard's {@code OptionalDetails} splits the raw bytes, header included, and
+ * returns the current date when a date field is missing. This parser keeps the
+ * same field order but refuses both behaviours.
+ */
 final class Dg13TextFields {
+    static final int ID_NUMBER = 4;
+    static final int BIRTH_DATE = 5;
+    static final int EXPIRY_DATE = 7;
+
     private static final byte DG13_TAG = 0x6D;
     private static final Pattern SEPARATOR = Pattern.compile("\\p{Cc}{2}");
     private static final DateTimeFormatter DATE = DateTimeFormatter
@@ -53,12 +64,17 @@ final class Dg13TextFields {
         return length;
     }
 
+    String textAt(final int index) {
+        return index >= 0 && index < values.length ? values[index].trim() : "";
+    }
+
     String isoDateAt(final int index) {
-        if (index < 0 || index >= values.length || values[index].isBlank()) {
+        final String value = textAt(index);
+        if (value.isEmpty()) {
             return "";
         }
         try {
-            return LocalDate.parse(values[index].trim(), DATE).toString();
+            return LocalDate.parse(value, DATE).toString();
         }
         catch (final DateTimeParseException e) {
             return "";

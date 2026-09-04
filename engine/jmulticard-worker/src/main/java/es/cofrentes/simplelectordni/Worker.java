@@ -1,7 +1,11 @@
 package es.cofrentes.simplelectordni;
 
 import java.io.BufferedReader;
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -21,7 +25,16 @@ public final class Worker {
         final BufferedReader input = new BufferedReader(
             new InputStreamReader(System.in, StandardCharsets.UTF_8)
         );
-        System.out.println(handle(input.readLine(), new Dg13Reader()));
+        try (OutputStream output = new FileOutputStream(FileDescriptor.out)) {
+            write(output, handle(input.readLine(), new Dg13Reader()));
+        }
+    }
+
+    /** The response is always UTF-8, independent of the platform charset. */
+    static void write(final OutputStream output, final String response) throws IOException {
+        output.write(response.getBytes(StandardCharsets.UTF_8));
+        output.write('\n');
+        output.flush();
     }
 
     static String handle(final String line, final DniReader reader) {
@@ -42,6 +55,9 @@ public final class Worker {
     }
 
     private static EngineRequest parseRequest(final String line) throws InvalidRequestException {
+        if (line == null) {
+            throw new InvalidRequestException();
+        }
         try {
             final EngineRequest request = JSON.readValue(line, EngineRequest.class);
             if (request.protocol() != PROTOCOL_VERSION || !"read".equals(request.command())) {
