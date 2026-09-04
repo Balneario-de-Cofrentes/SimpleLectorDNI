@@ -80,6 +80,20 @@ fn missing_engine_program_fails_once_with_its_path() {
 }
 
 #[test]
+fn bundled_layout_places_runtime_and_worker_under_the_root() {
+    let (java, jar) = ProcessEngine::bundled_layout(std::path::Path::new("/opt/slector"));
+
+    assert!(java.starts_with("/opt/slector/runtime/bin"));
+    assert_eq!(
+        jar,
+        std::path::PathBuf::from("/opt/slector/engine/simple-lector-dni-engine.jar")
+    );
+    let error = ProcessEngine::at(java, jar, NORMAL_PROCESS_TIMEOUT).unwrap_err();
+    assert_eq!(error.code, "ENGINE_NOT_FOUND");
+    assert!(!error.retryable);
+}
+
+#[test]
 fn nonzero_exit_reports_the_exit_code() {
     let error = fake_engine(FakeBehavior::StderrAndExit("boom"), NORMAL_PROCESS_TIMEOUT)
         .read(&reader())

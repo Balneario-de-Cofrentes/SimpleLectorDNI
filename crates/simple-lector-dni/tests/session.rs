@@ -128,7 +128,9 @@ impl Sink for FailingSink {
 
 fn collect(events: &mut Vec<Progress>) -> impl FnMut(Progress) -> ControlFlow<()> + '_ {
     move |progress| {
-        events.push(progress);
+        if progress != Progress::Idle {
+            events.push(progress);
+        }
         ControlFlow::Continue(())
     }
 }
@@ -337,6 +339,54 @@ fn watch_survives_a_pcsc_service_failure_and_reads_the_card_found_after_recovery
         |event| matches!(event, Progress::MonitorFailed { message } if message.contains("PC/SC"))
     ));
     assert!(events.contains(&Progress::MonitorRecovered));
+}
+
+#[test]
+fn an_idle_tick_lets_the_caller_stop_a_watch_session() {
+    let mut monitor = ScriptedMonitor::new(
+        vec![reader(ReaderPresence::Empty)],
+        vec![Ok(vec![]), Ok(vec![]), Ok(vec![])],
+    );
+    let engine = CountingEngine::default();
+    let sink = CountingSink::default();
+    let mut idle_ticks = 0;
+
+    run_session(
+        &mut monitor,
+        None,
+        &engine,
+        &[&sink],
+        &options(),
+        SessionMode::Watch,
+        &mut |progress| {
+            if progress == Progress::Idle {
+                idle_ticks += 1;
+                return ControlFlow::Break(());
+            }
+            ControlFlow::Continue(())
+        },
+    )
+    .unwrap();
+
+    assert_eq!(idle_ticks, 1);
+    assert_eq!(sink.0.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn progress_serialises_with_a_kind_tag_for_windows_and_sockets() {
+    let json = serde_json::to_value(Progress::Reading {
+        reader: READER.to_owned(),
+        attempt: 2,
+        attempts: 3,
+    })
+    .unwrap();
+
+    assert_eq!(json["kind"], "reading");
+    assert_eq!(json["attempt"], 2);
+    assert_eq!(
+        serde_json::to_value(Progress::Idle).unwrap()["kind"],
+        "idle"
+    );
 }
 
 #[test]

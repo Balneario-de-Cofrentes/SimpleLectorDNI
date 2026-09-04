@@ -86,12 +86,26 @@ impl ProcessEngine {
         let root = executable
             .parent()
             .ok_or_else(|| EngineFailure::new("ENGINE_NOT_FOUND", false))?;
+        let (java, jar) = Self::bundled_layout(root);
+        Self::at(java, jar, timeout)
+    }
+
+    /// Where a package keeps the Java runtime and the worker under `root`
+    /// (`runtime/bin/java` and `engine/simple-lector-dni-engine.jar`), unless the
+    /// `SIMPLE_LECTOR_DNI_JAVA` / `SIMPLE_LECTOR_DNI_ENGINE_JAR` overrides are set.
+    #[must_use]
+    pub fn bundled_layout(root: &Path) -> (PathBuf, PathBuf) {
         let java = std::env::var_os("SIMPLE_LECTOR_DNI_JAVA")
             .map(PathBuf::from)
             .unwrap_or_else(|| root.join(java_relative_path()));
         let jar = std::env::var_os("SIMPLE_LECTOR_DNI_ENGINE_JAR")
             .map(PathBuf::from)
             .unwrap_or_else(|| root.join("engine/simple-lector-dni-engine.jar"));
+        (java, jar)
+    }
+
+    /// An engine for an explicit runtime and worker, both checked to exist.
+    pub fn at(java: PathBuf, jar: PathBuf, timeout: Duration) -> Result<Self, EngineFailure> {
         require_file(&java)?;
         require_file(&jar)?;
         Ok(Self::new(java, vec!["-jar".into(), jar.into()], timeout))

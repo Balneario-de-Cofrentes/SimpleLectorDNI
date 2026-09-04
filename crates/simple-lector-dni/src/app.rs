@@ -3,6 +3,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use chrono::Local;
+use serde::Serialize;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -49,9 +50,13 @@ pub enum CycleError {
 }
 
 /// What the session is doing, emitted to the CLI (stderr) or to a GUI. Never carries
-/// document fields.
-#[derive(Clone, Debug, Eq, PartialEq)]
+/// document fields. Serialises as `{"kind": "...", ...fields}` for a window or a socket.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Progress {
+    /// A poll interval passed without events. Emitted so a caller can stop a session
+    /// that is otherwise silent; the CLI ignores it.
+    Idle,
     WaitingForReader,
     WaitingForCard {
         reader: String,
@@ -276,6 +281,7 @@ impl Session<'_> {
         loop {
             self.check_deadline()?;
             let step = match monitor.wait_for_events(self.options.poll_delay) {
+                Ok(events) if events.is_empty() => self.emit(Progress::Idle),
                 Ok(events) => self.dispatch(events)?,
                 Err(error) => self.recover(monitor, &error)?,
             };
@@ -466,6 +472,7 @@ fn new_record(reader: &ReaderInfo, read: EngineRead) -> ReadRecord {
 #[must_use]
 pub fn describe(progress: &Progress) -> String {
     match progress {
+        Progress::Idle => "Sin novedades.".to_owned(),
         Progress::WaitingForReader => "Esperando un lector PC/SC...".to_owned(),
         Progress::WaitingForCard { reader } => format!("Esperando un DNIe en «{reader}»..."),
         Progress::Reading {
@@ -491,7 +498,9 @@ pub fn describe(progress: &Progress) -> String {
 }
 
 fn print_progress(progress: Progress) -> ControlFlow<()> {
-    eprintln!("{}", describe(&progress));
+    if progress != Progress::Idle {
+        eprintln!("{}", describe(&progress));
+    }
     ControlFlow::Continue(())
 }
 

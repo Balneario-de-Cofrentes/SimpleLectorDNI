@@ -15,25 +15,8 @@ if test "${GITHUB_REF_TYPE:-}" = "tag" && test "$GITHUB_REF_NAME" != "v$version"
   exit 1
 fi
 
-case "$(uname -s)" in
-  Darwin)
-    platform=macos
-    binary=simple-lector-dni
-    jlink=jlink
-    case "$(uname -m)" in
-      arm64) architecture=arm64 ;;
-      x86_64) architecture=x64 ;;
-      *) echo "Unsupported macOS architecture: $(uname -m)" >&2; exit 1 ;;
-    esac
-    ;;
-  MINGW*|MSYS*|CYGWIN*)
-    platform=windows
-    architecture=x64
-    binary=simple-lector-dni.exe
-    jlink=jlink.exe
-    ;;
-  *) echo "Unsupported platform: $(uname -s)" >&2; exit 1 ;;
-esac
+. scripts/lib/host.sh
+binary="simple-lector-dni$exe"
 
 package_name="SimpleLectorDNI-v${version}-${platform}-${architecture}"
 temporary_root=$(mktemp -d "${TMPDIR:-/tmp}/simple-lector-dni.XXXXXX")
@@ -51,15 +34,7 @@ tr -d '\r' < scripts/release-files.txt | while IFS= read -r source; do
   cp "$source" "$destination"
 done
 
-runtime_modules=$(tr -d '\r\n' < scripts/runtime-modules.txt)
-
-"$JAVA_HOME/bin/$jlink" \
-  --add-modules "$runtime_modules" \
-  --compress zip-6 \
-  --strip-debug \
-  --no-header-files \
-  --no-man-pages \
-  --output "$package_dir/runtime"
+build_runtime "$package_dir/runtime"
 
 scripts/verify-release-package.sh "$package_dir"
 mkdir -p dist

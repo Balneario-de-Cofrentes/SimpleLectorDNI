@@ -1,5 +1,6 @@
 [workspace]
-members = ["crates/simple-lector-dni"]
+members = ["crates/simple-lector-dni", "apps/desktop"]
+default-members = ["crates/simple-lector-dni"]
 resolver = "2"
 
 [workspace.package]
