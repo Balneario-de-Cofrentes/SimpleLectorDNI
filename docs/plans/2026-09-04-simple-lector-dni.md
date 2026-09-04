@@ -204,6 +204,6 @@
 
 **Step 4:** Request independent code and test review. Fix every critical and important issue with a failing regression test first.
 
-**Step 5:** Create the public `balneariodecofrentes/SimpleLectorDNI` repository, push the reviewed branch, and verify the public page and CI status.
+**Step 5:** Create the public `Balneario-de-Cofrentes/SimpleLectorDNI` repository, push the reviewed branch, and verify the public page and CI status.
 
 **Step 6:** Tag the release only after cross-platform jobs pass and attach the generated ZIPs.

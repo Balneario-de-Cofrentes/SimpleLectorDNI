@@ -11,7 +11,7 @@ Gracias por ayudar a que la lectura de DNIe sea accesible e integrable. Ningún 
 - PowerShell y `jlink` para empaquetar en Windows
 
 ```sh
-git clone --recurse-submodules https://github.com/balneariodecofrentes/SimpleLectorDNI.git
+git clone --recurse-submodules https://github.com/Balneario-de-Cofrentes/SimpleLectorDNI.git
 cd SimpleLectorDNI
 cargo test --workspace --locked
 scripts/build-worker.sh

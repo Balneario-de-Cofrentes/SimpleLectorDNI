@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/balneariodecofrentes/SimpleLectorDNI/protocol/engine-v1.schema.json",
+  "$id": "https://github.com/Balneario-de-Cofrentes/SimpleLectorDNI/protocol/engine-v1.schema.json",
   "title": "SimpleLectorDNI engine protocol v1",
   "oneOf": [
     { "$ref": "#/$defs/request" },

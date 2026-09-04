@@ -6,7 +6,7 @@ Lector de DNIe por línea de comandos para Windows y macOS. Extrae los datos tex
 
 ## Inicio rápido
 
-Descarga y descomprime el paquete de tu sistema desde [Releases](https://github.com/balneariodecofrentes/SimpleLectorDNI/releases). El paquete ya incluye el runtime mínimo de Java y el motor JMultiCard, así que no hace falta instalar Java.
+Descarga y descomprime el paquete de tu sistema desde [Releases](https://github.com/Balneario-de-Cofrentes/SimpleLectorDNI/releases). El paquete ya incluye el runtime mínimo de Java y el motor JMultiCard, así que no hace falta instalar Java.
 
 La beta aún no está firmada ni notarizada. Verifica `SHA256SUMS` antes de ejecutarla. macOS o Windows pueden pedir una confirmación adicional del sistema; si la política de tu organización no permite binarios sin firma, compila desde el código fuente hasta que existan certificados de publicación.
 
@@ -93,7 +93,7 @@ Un lector profesional puede incluir sensores ópticos, UV o IR, OCR, lectura de 
 ## Desarrollo
 
 ```sh
-git clone --recurse-submodules https://github.com/balneariodecofrentes/SimpleLectorDNI.git
+git clone --recurse-submodules https://github.com/Balneario-de-Cofrentes/SimpleLectorDNI.git
 cd SimpleLectorDNI
 cargo test --workspace --locked
 scripts/build-worker.sh
