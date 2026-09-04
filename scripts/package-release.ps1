@@ -22,7 +22,7 @@ New-Item -ItemType Directory -Force -Path "$PackageDir/engine", "$PackageDir/pro
 Copy-Item target/release/simple-lector-dni.exe "$PackageDir/simple-lector-dni.exe"
 Copy-Item engine/jmulticard-worker/target/simple-lector-dni-engine.jar "$PackageDir/engine/"
 Copy-Item protocol/engine-v1.schema.json "$PackageDir/protocol/"
-Copy-Item README.md, LICENSE, RUNTIME_SOURCE.md, THIRD_PARTY_NOTICES.md, THIRD_PARTY_LICENSES.md, THIRD_PARTY_LICENSES.html $PackageDir
+Copy-Item .java-version, README.md, LICENSE, RUNTIME_SOURCE.md, THIRD_PARTY_NOTICES.md, THIRD_PARTY_LICENSES.md, THIRD_PARTY_LICENSES.html $PackageDir
 
 & "$env:JAVA_HOME/bin/jlink.exe" `
     --add-modules java.base,java.desktop,java.logging,java.naming,java.smartcardio,java.sql,jdk.crypto.ec `
@@ -38,6 +38,11 @@ $WorkerResponse = '{"protocol":99,"command":"read","reader_name":"Synthetic read
     & "$PackageDir/runtime/bin/java.exe" -jar "$PackageDir/engine/simple-lector-dni-engine.jar" |
     ConvertFrom-Json
 if ($WorkerResponse.error.code -ne "INVALID_REQUEST") { throw "Packaged worker failed" }
+$ExpectedJavaVersion = ((Get-Content "$PackageDir/.java-version" -Raw).Trim() -split '\+')[0]
+$RuntimeRelease = Get-Content "$PackageDir/runtime/release"
+if ($RuntimeRelease -notcontains "JAVA_VERSION=`"$ExpectedJavaVersion`"") {
+    throw "Packaged runtime does not match .java-version"
+}
 
 New-Item -ItemType Directory -Force -Path dist | Out-Null
 $TemporaryArchive = Join-Path $TemporaryRoot "$PackageName.zip"

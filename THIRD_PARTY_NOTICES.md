@@ -34,7 +34,7 @@ The shaded worker JAR preserves Jackson's `META-INF/LICENSE` and `META-INF/NOTIC
 
 ## Runtime de Java
 
-Los paquetes redistribuyen una imagen modular generada con `jlink` a partir de Eclipse Temurin 21. Temurin se distribuye bajo GPL-2.0 con Classpath Exception y conserva sus ficheros legales dentro del directorio `runtime/legal`. `RUNTIME_SOURCE.md` explica cómo identificar y obtener el código fuente correspondiente a la versión exacta declarada en `runtime/release`.
+Los paquetes redistribuyen una imagen modular generada con `jlink` a partir de Eclipse Temurin `21.0.12.1+1`. Temurin se distribuye bajo GPL-2.0 con Classpath Exception y conserva sus ficheros legales dentro del directorio `runtime/legal`. `RUNTIME_SOURCE.md` identifica el archivo de código fuente correspondiente, su URL oficial y SHA-256. El mismo archivo de fuentes se adjunta a cada release binaria de SimpleLectorDNI.
 
 Fuente: <https://adoptium.net/temurin/>
 

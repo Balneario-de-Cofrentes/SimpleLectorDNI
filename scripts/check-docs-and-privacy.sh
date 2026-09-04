@@ -19,6 +19,10 @@ do
 done
 
 rg -q 'Licencias Rust de terceros' THIRD_PARTY_LICENSES.html
+test "$(tr -d '\r\n' < .java-version)" = '21.0.12.1+1'
+rg -q 'OpenJDK21U-jdk-sources_21\.0\.12\.1_1\.tar\.gz' RUNTIME_SOURCE.md
+rg -q '573057d03584ae793fb7ec9a14c76d826d9187a53efeefd99da47403a5308234' \
+  RUNTIME_SOURCE.md .github/workflows/release.yml
 
 rg -q 'simple-lector-dni once' README.md
 rg -q 'simple-lector-dni watch' README.md

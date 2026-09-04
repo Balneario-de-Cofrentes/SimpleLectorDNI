@@ -28,7 +28,7 @@ mkdir -p "$package_dir/engine" "$package_dir/protocol"
 cp target/release/simple-lector-dni "$package_dir/simple-lector-dni"
 cp engine/jmulticard-worker/target/simple-lector-dni-engine.jar "$package_dir/engine/"
 cp protocol/engine-v1.schema.json "$package_dir/protocol/"
-cp README.md LICENSE RUNTIME_SOURCE.md THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.md \
+cp .java-version README.md LICENSE RUNTIME_SOURCE.md THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.md \
   THIRD_PARTY_LICENSES.html "$package_dir/"
 
 "$JAVA_HOME/bin/jlink" \
