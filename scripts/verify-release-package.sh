@@ -26,7 +26,11 @@ tr -d '\r' < scripts/release-files.txt | while IFS= read -r path; do
 done
 
 expected_java_version=$(tr -d '\r\n' < "$package_dir/.java-version" | sed 's/+.*$//')
-require rg -Fqx "JAVA_VERSION=\"$expected_java_version\"" "$package_dir/runtime/release"
+# jlink writes CRLF on Windows, so strip CR before the whole-line match.
+require_release_version() {
+  tr -d '\r' < "$package_dir/runtime/release" | rg -Fqx "JAVA_VERSION=\"$expected_java_version\""
+}
+require require_release_version
 
 require "$binary" --version
 require scripts/verify-worker-package.sh "$java" "$package_dir/engine/simple-lector-dni-engine.jar"
