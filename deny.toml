@@ -1,0 +1,16 @@
+# cargo-deny configuration (advisories only; licenses are handled by cargo-about).
+[graph]
+# Only the platforms we ship. Tauri's Linux tree (gtk3 bindings and friends) is never
+# compiled for these targets, so its advisories do not apply.
+targets = [
+  "aarch64-apple-darwin",
+  "x86_64-apple-darwin",
+  "x86_64-pc-windows-msvc",
+]
+
+[advisories]
+# Vulnerabilities and yanked crates fail the build. Unmaintained advisories only
+# count for crates this workspace depends on directly; Tauri's build-time helpers
+# (proc-macro-error, unic-*) are upstream's to replace.
+unmaintained = "workspace"
+yanked = "deny"

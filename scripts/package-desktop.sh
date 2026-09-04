@@ -9,8 +9,10 @@ cd "$repo_root"
 
 scripts/build-worker.sh
 
+# Only the staged runtime and worker are replaced; resources/README.md stays tracked so
+# a plain build (no bundle) still satisfies the resources glob in tauri.conf.json.
 resources=apps/desktop/resources
-rm -rf "$resources"
+rm -rf "$resources/runtime" "$resources/engine"
 mkdir -p "$resources/engine"
 cp engine/jmulticard-worker/target/simple-lector-dni-engine.jar "$resources/engine/"
 build_runtime "$resources/runtime"
