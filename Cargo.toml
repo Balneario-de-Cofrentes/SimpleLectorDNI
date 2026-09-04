@@ -9,5 +9,7 @@ repository = "https://github.com/balneariodecofrentes/SimpleLectorDNI"
 rust-version = "1.85"
 
 [workspace.dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+uuid = { version = "1.0", features = ["serde", "v4"] }
