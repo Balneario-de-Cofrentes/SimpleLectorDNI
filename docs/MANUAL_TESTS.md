@@ -12,6 +12,11 @@ No publiques salidas completas de documentos reales. Valida estructura y presenc
 6. Desconectar y reconectar el lector durante `watch` y verificar recuperación.
 7. Probar un webhook loopback que compruebe esquema, `Idempotency-Key` y respuesta sin guardar el cuerpo.
 8. Probar el ZIP publicado en una máquina limpia, sin Java instalado por separado.
+9. Leer un documento cuyo nombre o apellidos contengan `Ñ` o tildes y comprobar que el campo llega con el carácter correcto. Imprescindible en Windows.
+10. Ejecutar `once --timeout-seconds 5` sin tarjeta y comprobar que termina con error pasado el plazo.
+11. Durante `watch`, reiniciar el servicio de tarjeta inteligente (Windows: `Restart-Service SCardSvr`; macOS: desconectar el lector con la tarjeta dentro y volver a conectarlo) y confirmar que aparece `Servicio PC/SC recuperado` y que la siguiente inserción se lee.
+12. Apuntar `--webhook` a un receptor loopback que devuelva `503` una vez y `204` después, y confirmar una sola lectura con dos peticiones y la misma `Idempotency-Key`.
+13. Comprobar en stderr que el progreso indica lector, tarjeta, intento y salida fallida sin ningún dato del documento.
 
 Comprobación segura de una lectura:
 

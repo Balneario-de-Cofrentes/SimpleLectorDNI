@@ -22,6 +22,14 @@ Prueba realizada el 4 de septiembre de 2026:
 
 La prueba confirmó los 21 campos del contrato con contenido en el documento usado, sin registrar sus valores. También se verificó el paquete autocontenido de macOS, no solo el entorno de desarrollo.
 
+## Verificación del SOD
+
+La firma del SOD se comprueba respecto al certificado que el propio SOD incluye, sin validar ese certificado contra la CSCA ni comprobar su vigencia. Un fallo de firma o de certificado devuelve `INTEGRITY_ERROR` y no se reintenta. Un DNIe cuyo certificado de firma del documento haya caducado sigue leyéndose mientras la firma sea correcta; la política sobre certificados caducados queda pendiente hasta que exista validación de cadena.
+
+## Juego de caracteres
+
+El worker escribe su respuesta en UTF-8 con independencia del juego de caracteres del sistema. En la beta anterior, Windows en castellano (`Cp1252`) hacía fallar cualquier lectura con `Ñ` o tildes; la corrección tiene test unitario pero la prueba física en Windows con un documento así sigue pendiente.
+
 ## Documentos
 
 La implementación está orientada a DNIe compatible con la clase `Dnie3` de JMultiCard y su canal seguro de usuario. No incluye pasaportes, NIE/TIE ópticos, documentos extranjeros ni DNI antiguos sin chip compatible.

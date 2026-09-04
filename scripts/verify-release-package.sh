@@ -3,9 +3,17 @@ set -eu
 
 package_dir=${1:?"usage: verify-release-package.sh <package-directory>"}
 
-test -f "$package_dir/simple-lector-dni" || test -f "$package_dir/simple-lector-dni.exe"
+if test -f "$package_dir/simple-lector-dni.exe"; then
+  binary="$package_dir/simple-lector-dni.exe"
+  java="$package_dir/runtime/bin/java.exe"
+else
+  binary="$package_dir/simple-lector-dni"
+  java="$package_dir/runtime/bin/java"
+fi
+
+test -x "$binary"
 test -f "$package_dir/engine/simple-lector-dni-engine.jar"
-test -f "$package_dir/runtime/bin/java" || test -f "$package_dir/runtime/bin/java.exe"
+test -x "$java"
 test -f "$package_dir/runtime/release"
 
 while IFS= read -r path; do
@@ -16,9 +24,5 @@ done < scripts/release-files.txt
 expected_java_version=$(tr -d '\r\n' < "$package_dir/.java-version" | sed 's/+.*$//')
 rg -Fqx "JAVA_VERSION=\"$expected_java_version\"" "$package_dir/runtime/release"
 
-if test -x "$package_dir/simple-lector-dni"; then
-  "$package_dir/simple-lector-dni" --version >/dev/null
-  scripts/verify-worker-package.sh \
-    "$package_dir/runtime/bin/java" \
-    "$package_dir/engine/simple-lector-dni-engine.jar"
-fi
+"$binary" --version >/dev/null
+scripts/verify-worker-package.sh "$java" "$package_dir/engine/simple-lector-dni-engine.jar"

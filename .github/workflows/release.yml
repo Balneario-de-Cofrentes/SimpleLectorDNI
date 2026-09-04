@@ -17,15 +17,12 @@ jobs:
         include:
           - name: macos-arm64
             os: macos-26
-            package: sh
             validate_docs: "true"
           - name: macos-x64
             os: macos-15-intel
-            package: sh
             validate_docs: "false"
           - name: windows-x64
             os: windows-2025
-            package: powershell
             validate_docs: "false"
 
     steps:
@@ -35,7 +32,6 @@ jobs:
 
       - uses: ./.github/actions/build-and-package
         with:
-          package: ${{ matrix.package }}
           artifact-name: ${{ matrix.name }}
           validate-docs: ${{ matrix.validate_docs }}
 

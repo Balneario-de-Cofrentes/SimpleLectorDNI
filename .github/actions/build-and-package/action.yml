@@ -2,9 +2,6 @@ name: Build, test and package
 description: Shared cross-platform pipeline for CI and releases
 
 inputs:
-  package:
-    description: Packaging shell, either sh or powershell
-    required: true
   artifact-name:
     description: Uploaded artifact name
     required: true
@@ -63,17 +60,9 @@ runs:
       shell: bash
       run: scripts/check-docs-and-privacy.sh
 
-    - name: Package macOS
-      if: inputs.package == 'sh'
+    - name: Package
       shell: bash
-      env:
-        MVN: mvn
       run: scripts/package-release.sh
-
-    - name: Package Windows
-      if: inputs.package == 'powershell'
-      shell: pwsh
-      run: scripts/package-release.ps1
 
     - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:

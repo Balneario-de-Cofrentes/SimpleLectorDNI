@@ -36,6 +36,8 @@ rg -q 'simple-lector-dni watch' README.md
 rg -q 'simple-lector-dni list-readers' README.md
 rg -q -- '--jsonl' docs/INTEGRATION.md
 rg -q -- '--webhook' docs/INTEGRATION.md
+rg -q -- '--timeout-seconds' docs/INTEGRATION.md
+rg -q 'DG13_LAYOUT' docs/INTEGRATION.md
 
 if rg -n 'gh[opsu]_[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----' \
   --glob '!vendor/**' --glob '!target/**' .; then

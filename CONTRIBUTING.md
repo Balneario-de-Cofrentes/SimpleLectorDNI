@@ -7,15 +7,16 @@ Gracias por ayudar a que la lectura de DNIe sea accesible e integrable. Ningún 
 - Rust 1.88 o posterior
 - JDK 21
 - Maven 3.9
-- `jq`, `zip`, `ripgrep` y `jlink` para empaquetar en macOS
-- PowerShell y `jlink` para empaquetar en Windows
+- `jq`, `ripgrep` y `jlink` para empaquetar; `zip` en macOS o `7z` en Windows
+- Git Bash en Windows: todos los scripts son `sh`
 
 ```sh
 git clone --recurse-submodules https://github.com/Balneario-de-Cofrentes/SimpleLectorDNI.git
 cd SimpleLectorDNI
 cargo test --workspace --locked
+mvn -f engine/jmulticard-worker/pom.xml test
 scripts/build-worker.sh
-scripts/verify-worker-package.sh
+scripts/package-release.sh
 ```
 
 Si el repositorio ya estaba clonado sin submódulos:
@@ -38,10 +39,10 @@ cargo test --workspace --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
 scripts/check-no-biometric-access.sh
 scripts/check-docs-and-privacy.sh
-cargo about generate about.hbs --workspace --locked --fail -o THIRD_PARTY_LICENSES.html
+scripts/generate-third-party-licenses.sh
 ```
 
-El expediente HTML de licencias debe regenerarse y versionarse cuando cambie `Cargo.lock`.
+Los dos inventarios de licencias se regeneran con ese script y se versionan cuando cambie `Cargo.lock`.
 
 Las funciones deben ser pequeñas, los límites entre PC/SC, worker y salidas deben permanecer explícitos, y los errores públicos no deben filtrar APDU ni contenido del documento.
 

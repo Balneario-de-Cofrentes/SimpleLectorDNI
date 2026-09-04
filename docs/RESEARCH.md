@@ -26,7 +26,9 @@ La documentación oficial del DNIe describe los mecanismos de acceso BAC y PACE 
 
 DG13 contiene los datos textuales mostrados por el programa, incluida la dirección y el número de soporte cuando están presentes. DG2 contiene la fotografía y DG7 la firma manuscrita. El código de producción tiene una comprobación automática que prohíbe llamadas a `getDg2()` o `getDg7()`.
 
-La verificación del SOD es selectiva. Valida su firma y el hash de DG13 sin cargar otros grupos de datos. Esto confirma que el contenido textual entregado coincide con lo firmado en el documento.
+La verificación del SOD es selectiva. Valida su firma y el hash de DG13 sin cargar otros grupos de datos. Esto confirma que el contenido textual entregado coincide con lo firmado en el documento. La firma se valida contra el certificado que el SOD transporta; JMultiCard documenta que `validateCmsSignature` no comprueba la validez de ese certificado y devuelve la cadena para una validación externa que SimpleLectorDNI todavía no hace. Un fallo de firma o de certificado se devuelve como `INTEGRITY_ERROR` y no se reintenta.
+
+DG13 se interpreta dos veces. `OptionalDetails` de JMultiCard aporta los campos de texto, pero divide los bytes sin quitar la cabecera DER y devuelve la fecha actual cuando falta una fecha, así que las fechas se extraen con un analizador propio que quita la cabecera y devuelve vacío ante cualquier duda. Si ambos analizadores no coinciden en el número de documento, la lectura falla con `DG13_LAYOUT` en lugar de entregar campos desplazados.
 
 ## Qué aporta el hardware
 
@@ -36,7 +38,7 @@ No todos los equipos de precio alto son equivalentes a un lector PC/SC. Algunos 
 
 ## Decisiones de arquitectura
 
-- Rust mantiene un único binario supervisor, sin interfaz gráfica, fácil de integrar y con bajo consumo.
+- Rust mantiene un único binario supervisor, sin interfaz gráfica, fácil de integrar y con bajo consumo. El bucle de sesión emite eventos de progreso que la CLI imprime en stderr y que una interfaz gráfica puede consumir sin cambiar la lógica.
 - Java queda aislado en un worker pequeño porque JMultiCard es la implementación de referencia más completa localizada para DNIe.
 - Los paquetes incluyen un runtime Java recortado con `jlink`, por lo que el usuario final no instala Java.
 - El contrato JSON separa la integración del motor. Una futura implementación nativa puede sustituirlo sin romper PMS, CSV o webhooks.

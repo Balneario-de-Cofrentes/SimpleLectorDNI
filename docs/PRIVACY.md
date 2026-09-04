@@ -18,7 +18,8 @@ SimpleLectorDNI procesa datos de identidad y domicilio. Esta guía ayuda a despl
 - No existe telemetría, cuenta remota ni servicio del proyecto.
 - Los errores no incluyen los valores personales leídos.
 - Los ficheros nuevos se crean con permisos `0600` en Unix.
-- En Windows heredan la ACL de la carpeta. Usa una carpeta privada del usuario o una ACL corporativa restrictiva, nunca una ubicación compartida por defecto.
+- En Windows, al crear cada fichero se sustituye la ACL heredada por una entrada exclusiva para la cuenta actual mediante `icacls`. Si `icacls` falla, la salida falla y se informa.
+- El proceso del worker Java no recibe el token del webhook en su entorno.
 - `--json` usa reemplazo atómico, mientras `--jsonl` y `--csv` conservan historial por diseño.
 - La URL del webhook debe usar HTTPS, excepto loopback para pruebas locales.
 

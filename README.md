@@ -14,7 +14,7 @@ En macOS:
 
 ```sh
 ./simple-lector-dni list-readers
-./simple-lector-dni once --stdout
+./simple-lector-dni once --stdout --timeout-seconds 60
 ./simple-lector-dni watch --csv lecturas.csv
 ```
 
@@ -22,9 +22,11 @@ En Windows PowerShell:
 
 ```powershell
 .\simple-lector-dni.exe list-readers
-.\simple-lector-dni.exe once --stdout
+.\simple-lector-dni.exe once --stdout --timeout-seconds 60
 .\simple-lector-dni.exe watch --csv lecturas.csv
 ```
+
+La salida estándar solo lleva JSON. El progreso (lector esperado, tarjeta esperada, intento en curso, salida fallida) va a stderr en castellano.
 
 Si hay varios lectores, selecciona uno por una parte de su nombre:
 
@@ -58,15 +60,16 @@ El modo `watch` se mantiene activo y:
 
 1. Detecta lector, inserción y retirada mediante PC/SC.
 2. Lee una sola vez por inserción.
-3. Reintenta errores recuperables hasta tres veces.
+3. Reintenta errores recuperables hasta tres veces. Una tarjeta que no es un DNIe, una retirada a mitad de lectura o un fallo de integridad no se reintentan.
 4. Espera a que se retire el DNI antes de aceptar otra lectura.
-5. Se recupera si se desconecta y vuelve a conectar el lector.
+5. Se recupera si se desconecta y vuelve a conectar el lector, y si el servicio PC/SC del sistema se reinicia.
+6. Informa por stderr de cada salida que falla, con su nombre y motivo, sin datos del documento.
 
 ## Qué datos puede obtener
 
 El chip expone en DG13 nombre, apellidos, DNI, fechas de nacimiento y caducidad, nacionalidad, número de soporte, sexo, lugar de nacimiento, nombres de progenitores, dirección, localidad, provincia, país, versión del DNIe y número de serie del chip. La disponibilidad concreta depende de la versión y del contenido del documento.
 
-SimpleLectorDNI valida la firma del SOD y el hash de DG13. No solicita ni lee DG2 (fotografía) ni DG7 (firma manuscrita), y no implementa firma electrónica.
+SimpleLectorDNI comprueba que el hash de DG13 coincide con el firmado en el SOD y que la firma del SOD es válida respecto al certificado que el propio SOD contiene. No valida ese certificado contra la autoridad emisora (CSCA), así que `verified` acredita la integridad del contenido leído, no la autenticidad del emisor. No solicita ni lee DG2 (fotografía) ni DG7 (firma manuscrita), y no implementa firma electrónica.
 
 ## Arquitectura
 

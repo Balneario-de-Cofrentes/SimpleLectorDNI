@@ -18,4 +18,4 @@ Incluye versión, plataforma, lector, pasos mínimos con datos sintéticos e imp
 - Un webhook cruza la máquina local y requiere HTTPS, autenticación, autorización y una política de retención del receptor.
 - El token del webhook procede de una variable de entorno y nunca debe escribirse en argumentos, configuración versionada o logs.
 
-SimpleLectorDNI no es una herramienta antifraude y no certifica la autenticidad física del soporte. La verificación SOD protege la integridad criptográfica de DG13, pero no sustituye los controles operativos o legales del alojamiento.
+SimpleLectorDNI no es una herramienta antifraude y no certifica la autenticidad física del soporte. La verificación del SOD comprueba que DG13 coincide con el hash firmado y que la firma es válida respecto al certificado incluido en el propio SOD; no valida ese certificado contra la CSCA, por lo que un chip que emulara el sistema de ficheros con un certificado propio pasaría la comprobación. Esa validación de cadena es una decisión de producto pendiente. Nada de esto sustituye los controles operativos o legales del alojamiento.

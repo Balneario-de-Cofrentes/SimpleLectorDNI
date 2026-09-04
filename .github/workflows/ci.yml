@@ -18,15 +18,12 @@ jobs:
         include:
           - name: macOS Apple Silicon
             os: macos-26
-            package: sh
             validate_docs: "true"
           - name: macOS Intel
             os: macos-15-intel
-            package: sh
             validate_docs: "false"
           - name: Windows x64
             os: windows-2025
-            package: powershell
             validate_docs: "false"
 
     steps:
@@ -36,6 +33,15 @@ jobs:
 
       - uses: ./.github/actions/build-and-package
         with:
-          package: ${{ matrix.package }}
           artifact-name: ${{ matrix.name }}
           validate-docs: ${{ matrix.validate_docs }}
+
+  advisories:
+    name: Cargo advisories
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: EmbarkStudios/cargo-deny-action@c3bbe7e4e3f7baeee1a3dd9aec0a3b2aded580fb # v2.1.1
+        with:
+          command: check advisories
