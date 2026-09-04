@@ -1,0 +1,12 @@
+[package]
+name = "simple-lector-dni"
+version = "0.1.0"
+description = "CLI para leer datos DG13 de un DNIe mediante un lector PC/SC"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
