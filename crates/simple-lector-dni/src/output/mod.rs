@@ -9,7 +9,7 @@ use thiserror::Error;
 use crate::model::ReadRecord;
 
 pub use csv_sink::CsvSink;
-pub use files::{JsonFileSink, JsonLinesSink};
+pub use files::{JsonFileSink, JsonLinesSink, StdoutSink};
 pub use webhook::WebhookSink;
 
 #[derive(Debug, Error)]

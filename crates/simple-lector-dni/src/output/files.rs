@@ -7,6 +7,24 @@ use super::{OutputError, Sink, open_private_append, set_private_permissions};
 use crate::model::ReadRecord;
 
 #[derive(Debug)]
+pub struct StdoutSink;
+
+impl Sink for StdoutSink {
+    fn name(&self) -> &'static str {
+        "stdout"
+    }
+
+    fn deliver(&self, record: &ReadRecord) -> Result<(), OutputError> {
+        let stdout = std::io::stdout();
+        let mut output = stdout.lock();
+        serde_json::to_writer(&mut output, record)?;
+        output.write_all(b"\n")?;
+        output.flush()?;
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
 pub struct JsonFileSink {
     path: PathBuf,
 }
