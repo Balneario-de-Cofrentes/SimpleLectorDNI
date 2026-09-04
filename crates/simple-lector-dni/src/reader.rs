@@ -28,6 +28,63 @@ pub enum ReaderEvent {
     CardRemoved(ReaderInfo),
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SelectionChange {
+    Unchanged,
+    Selected,
+    Deselected,
+}
+
+#[derive(Debug)]
+pub(crate) struct ReaderSelection {
+    pattern: Option<String>,
+    selected: Option<ReaderInfo>,
+}
+
+impl ReaderSelection {
+    pub(crate) fn new(readers: &[ReaderInfo], pattern: Option<&str>) -> Result<Self, ReaderError> {
+        let selected = optional_reader(readers, pattern)?;
+        Ok(Self {
+            pattern: pattern.map(str::to_lowercase),
+            selected,
+        })
+    }
+
+    pub(crate) fn selected(&self) -> Option<&ReaderInfo> {
+        self.selected.as_ref()
+    }
+
+    pub(crate) fn selected_name(&self) -> Option<&str> {
+        self.selected().map(|reader| reader.name.as_str())
+    }
+
+    pub(crate) fn is_selected(&self, reader: &ReaderInfo) -> bool {
+        self.selected_name() == Some(reader.name.as_str())
+    }
+
+    pub(crate) fn update(&mut self, event: &ReaderEvent) -> SelectionChange {
+        match event {
+            ReaderEvent::ReaderAttached(reader)
+                if self.selected.is_none() && self.matches(reader) =>
+            {
+                self.selected = Some(reader.clone());
+                SelectionChange::Selected
+            }
+            ReaderEvent::ReaderDetached(reader) if self.is_selected(reader) => {
+                self.selected = None;
+                SelectionChange::Deselected
+            }
+            _ => SelectionChange::Unchanged,
+        }
+    }
+
+    fn matches(&self, reader: &ReaderInfo) -> bool {
+        self.pattern
+            .as_ref()
+            .is_none_or(|pattern| reader.name.to_lowercase().contains(pattern))
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum ReaderError {
     #[error("PC/SC error: {0}")]
@@ -128,6 +185,17 @@ pub fn select_reader(
         .cloned()
         .collect();
     selected_match(matches, pattern)
+}
+
+fn optional_reader(
+    readers: &[ReaderInfo],
+    pattern: Option<&str>,
+) -> Result<Option<ReaderInfo>, ReaderError> {
+    match select_reader(readers, pattern) {
+        Ok(reader) => Ok(Some(reader)),
+        Err(ReaderError::NoReaders | ReaderError::NotFound(_)) => Ok(None),
+        Err(error) => Err(error),
+    }
 }
 
 fn selected_match(mut matches: Vec<ReaderInfo>, pattern: &str) -> Result<ReaderInfo, ReaderError> {

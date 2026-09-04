@@ -19,78 +19,23 @@ jobs:
           - name: macOS Apple Silicon
             os: macos-26
             package: sh
+            validate_docs: "true"
           - name: macOS Intel
             os: macos-15-intel
             package: sh
+            validate_docs: "false"
           - name: Windows x64
             os: windows-2025
             package: powershell
+            validate_docs: "false"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
 
-      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+      - uses: ./.github/actions/build-and-package
         with:
-          distribution: temurin
-          java-version-file: ".java-version"
-          cache: maven
-
-      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
-        with:
-          toolchain: "1.88.0"
-          components: clippy,rustfmt
-
-      - uses: Swatinem/rust-cache@63fed3e2fecf6f7b51dc6f043341b79ef82a9ae7 # v2.9.2
-
-      - name: Install ripgrep on macOS
-        if: runner.os == 'macOS'
-        run: command -v rg >/dev/null || brew install ripgrep
-
-      - name: Install ripgrep on Windows
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          if (-not (Get-Command rg -ErrorAction SilentlyContinue)) {
-            choco install ripgrep --yes --no-progress
-          }
-
-      - name: Rust format
-        run: cargo fmt --all -- --check
-
-      - name: Rust lint
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
-
-      - name: Rust tests
-        run: cargo test --workspace --locked
-
-      - name: Prevent biometric access
-        if: runner.os != 'Windows'
-        run: scripts/check-no-biometric-access.sh
-
-      - name: Prevent biometric access on Windows
-        if: runner.os == 'Windows'
-        shell: bash
-        run: scripts/check-no-biometric-access.sh
-
-      - name: Validate documentation and privacy guardrails
-        if: matrix.name == 'macOS Apple Silicon'
-        run: scripts/check-docs-and-privacy.sh
-
-      - name: Package macOS
-        if: matrix.package == 'sh'
-        env:
-          MVN: mvn
-        run: scripts/package-release.sh
-
-      - name: Package Windows
-        if: matrix.package == 'powershell'
-        shell: pwsh
-        run: scripts/package-release.ps1
-
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ${{ matrix.name }}
-          path: dist/*.zip
-          if-no-files-found: error
+          package: ${{ matrix.package }}
+          artifact-name: ${{ matrix.name }}
+          validate-docs: ${{ matrix.validate_docs }}

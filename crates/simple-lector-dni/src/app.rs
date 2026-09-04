@@ -13,7 +13,8 @@ use crate::output::{
     CsvSink, JsonFileSink, JsonLinesSink, OutputError, Sink, StdoutSink, WebhookSink, deliver_all,
 };
 use crate::reader::{
-    PcscMonitor, ReaderError, ReaderEvent, ReaderInfo, ReaderMonitor, ReaderPresence, select_reader,
+    PcscMonitor, ReaderError, ReaderEvent, ReaderInfo, ReaderMonitor, ReaderPresence,
+    ReaderSelection, SelectionChange,
 };
 
 const POLL_DELAY: Duration = Duration::from_millis(250);
@@ -35,26 +36,24 @@ pub enum AppError {
 
 #[derive(Debug)]
 pub struct WatchController {
-    pattern: Option<String>,
-    selected: Option<ReaderInfo>,
+    selection: ReaderSelection,
     lifecycle: CardLifecycle,
 }
 
 impl WatchController {
     pub fn new(readers: &[ReaderInfo], pattern: Option<&str>) -> Result<Self, AppError> {
-        let selected = selectable_reader(readers, pattern)?;
+        let selection = ReaderSelection::new(readers, pattern)?;
         Ok(Self {
-            pattern: pattern.map(str::to_owned),
-            lifecycle: CardLifecycle::new(selected.is_some()),
-            selected,
+            lifecycle: CardLifecycle::new(selection.selected().is_some()),
+            selection,
         })
     }
 
     #[must_use]
     pub fn initial_read(&mut self) -> Option<ReaderInfo> {
         let reader = self
-            .selected
-            .as_ref()
+            .selection
+            .selected()
             .filter(|value| value.presence == ReaderPresence::Present)?
             .clone();
         self.start_read(reader)
@@ -62,11 +61,11 @@ impl WatchController {
 
     #[must_use]
     pub fn handle(&mut self, event: ReaderEvent) -> Option<ReaderInfo> {
+        self.update_reader_lifecycle(&event);
         match event {
-            ReaderEvent::ReaderAttached(reader) => self.reader_attached(reader),
-            ReaderEvent::ReaderDetached(reader) => self.reader_detached(&reader),
             ReaderEvent::CardInserted(reader) => self.card_inserted(reader),
             ReaderEvent::CardRemoved(reader) => self.card_removed(&reader),
+            ReaderEvent::ReaderAttached(_) | ReaderEvent::ReaderDetached(_) => None,
         }
     }
 
@@ -80,34 +79,30 @@ impl WatchController {
 
     #[must_use]
     pub fn selected_name(&self) -> Option<&str> {
-        self.selected.as_ref().map(|reader| reader.name.as_str())
+        self.selection.selected_name()
     }
 
-    fn reader_attached(&mut self, reader: ReaderInfo) -> Option<ReaderInfo> {
-        if self.selected.is_none() && matches_pattern(&reader, self.pattern.as_deref()) {
-            self.selected = Some(reader);
-            self.lifecycle.handle(LifecycleEvent::ReaderAttached);
+    fn update_reader_lifecycle(&mut self, event: &ReaderEvent) {
+        match self.selection.update(event) {
+            SelectionChange::Selected => {
+                self.lifecycle.handle(LifecycleEvent::ReaderAttached);
+            }
+            SelectionChange::Deselected => {
+                self.lifecycle.handle(LifecycleEvent::ReaderDetached);
+            }
+            SelectionChange::Unchanged => {}
         }
-        None
-    }
-
-    fn reader_detached(&mut self, reader: &ReaderInfo) -> Option<ReaderInfo> {
-        if self.is_selected(reader) {
-            self.lifecycle.handle(LifecycleEvent::ReaderDetached);
-            self.selected = None;
-        }
-        None
     }
 
     fn card_inserted(&mut self, reader: ReaderInfo) -> Option<ReaderInfo> {
-        if self.is_selected(&reader) {
+        if self.selection.is_selected(&reader) {
             return self.start_read(reader);
         }
         None
     }
 
     fn card_removed(&mut self, reader: &ReaderInfo) -> Option<ReaderInfo> {
-        if self.is_selected(reader) {
+        if self.selection.is_selected(reader) {
             self.lifecycle.handle(LifecycleEvent::CardRemoved);
         }
         None
@@ -116,12 +111,6 @@ impl WatchController {
     fn start_read(&mut self, reader: ReaderInfo) -> Option<ReaderInfo> {
         (self.lifecycle.handle(LifecycleEvent::CardInserted) == LifecycleAction::StartRead)
             .then_some(reader)
-    }
-
-    fn is_selected(&self, reader: &ReaderInfo) -> bool {
-        self.selected
-            .as_ref()
-            .is_some_and(|value| value.name == reader.name)
     }
 }
 
@@ -226,58 +215,23 @@ fn wait_for_card(
     pattern: Option<&str>,
 ) -> Result<ReaderInfo, AppError> {
     let readers = monitor.initialise()?;
-    let mut selected = selectable_reader(&readers, pattern)?;
-    if let Some(reader) = selected
-        .as_ref()
+    let mut selection = ReaderSelection::new(&readers, pattern)?;
+    if let Some(reader) = selection
+        .selected()
         .filter(|value| value.presence == ReaderPresence::Present)
     {
         return Ok(reader.clone());
     }
     loop {
         for event in monitor.wait_for_events(POLL_DELAY)? {
-            update_selection(&event, &mut selected, pattern);
+            selection.update(&event);
             if let ReaderEvent::CardInserted(reader) = event
-                && selected
-                    .as_ref()
-                    .is_some_and(|value| value.name == reader.name)
+                && selection.is_selected(&reader)
             {
                 return Ok(reader);
             }
         }
     }
-}
-
-fn selectable_reader(
-    readers: &[ReaderInfo],
-    pattern: Option<&str>,
-) -> Result<Option<ReaderInfo>, AppError> {
-    match select_reader(readers, pattern) {
-        Ok(reader) => Ok(Some(reader)),
-        Err(ReaderError::NoReaders | ReaderError::NotFound(_)) => Ok(None),
-        Err(error) => Err(error.into()),
-    }
-}
-
-fn update_selection(event: &ReaderEvent, selected: &mut Option<ReaderInfo>, pattern: Option<&str>) {
-    match event {
-        ReaderEvent::ReaderAttached(reader)
-            if selected.is_none() && matches_pattern(reader, pattern) =>
-        {
-            *selected = Some(reader.clone());
-        }
-        ReaderEvent::ReaderDetached(reader)
-            if selected
-                .as_ref()
-                .is_some_and(|value| value.name == reader.name) =>
-        {
-            *selected = None;
-        }
-        _ => {}
-    }
-}
-
-fn matches_pattern(reader: &ReaderInfo, pattern: Option<&str>) -> bool {
-    pattern.is_none_or(|value| reader.name.to_lowercase().contains(&value.to_lowercase()))
 }
 
 fn process_watch_read(

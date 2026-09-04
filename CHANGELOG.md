@@ -2,6 +2,15 @@
 
 Los cambios relevantes de este proyecto se documentan aquí. El formato sigue Keep a Changelog y las versiones siguen Semantic Versioning.
 
+## [Sin publicar]
+
+### Cambiado
+
+- Unificada la selección dinámica de lectores usada por `once` y `watch`.
+- Tipados los estados de integridad y los errores seguros del motor Java.
+- Añadida una fixture compartida para mantener alineados Java, Rust y JSON Schema.
+- Centralizados el pipeline CI y el manifiesto de los paquetes multiplataforma.
+
 ## [0.1.0] - 2026-09-04
 
 ### Añadido

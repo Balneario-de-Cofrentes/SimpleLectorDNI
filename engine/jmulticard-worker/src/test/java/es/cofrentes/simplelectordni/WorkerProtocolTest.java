@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.InputStream;
+import java.util.Objects;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -19,10 +22,7 @@ final class WorkerProtocolTest {
         document.dni = "00000000T";
         final DniReader reader = readerName -> {
             assertEquals("Synthetic reader", readerName);
-            return new DniReadResult(
-                document,
-                new IntegrityResult("verified", "verified")
-            );
+            return verifiedResult(document);
         };
 
         final String response = Worker.handle(
@@ -36,6 +36,38 @@ final class WorkerProtocolTest {
         assertEquals("ANA", json.path("document").path("nombre").asText());
         assertEquals("00000000T", json.path("document").path("dni").asText());
         assertEquals("verified", json.path("integrity").path("dg13_hash").asText());
+    }
+
+    @Test
+    void successResponseMatchesSharedProtocolFixture() throws Exception {
+        final JsonNode expected = readSuccessFixture();
+        final DocumentData document = JSON.treeToValue(
+            expected.path("document"),
+            DocumentData.class
+        );
+        final DniReader reader = ignored -> verifiedResult(document);
+
+        final String actual = Worker.handle(
+            "{\"protocol\":1,\"command\":\"read\",\"reader_name\":\"Synthetic reader\"}",
+            reader
+        );
+
+        assertEquals(expected, JSON.readTree(actual));
+    }
+
+    private JsonNode readSuccessFixture() throws Exception {
+        try (InputStream fixture = Objects.requireNonNull(
+            getClass().getResourceAsStream("/success.json")
+        )) {
+            return JSON.readTree(fixture);
+        }
+    }
+
+    private static DniReadResult verifiedResult(final DocumentData document) {
+        return new DniReadResult(
+            document,
+            new IntegrityResult(VerificationStatus.VERIFIED, VerificationStatus.VERIFIED)
+        );
     }
 
     @Test
@@ -70,10 +102,8 @@ final class WorkerProtocolTest {
             "{\"protocol\":1,\"command\":\"read\",\"reader_name\":\"Synthetic reader\"}",
             readerName -> {
                 throw new DniReadException(
-                    "CARD_READ_FAILED",
-                    "sensitive DNI 00000000T",
-                    true,
-                    null
+                    DniErrorCode.CARD_READ_FAILED,
+                    new IllegalStateException("sensitive DNI 00000000T")
                 );
             }
         );
@@ -85,18 +115,15 @@ final class WorkerProtocolTest {
     }
 
     @Test
-    void invalidErrorCodesAreSanitizedBeforeSerialization() throws Exception {
+    void expectedReadErrorsUseCentralRetryPolicy() throws Exception {
         final String response = Worker.handle(
             "{\"protocol\":1,\"command\":\"read\",\"reader_name\":\"Synthetic reader\"}",
-            readerName -> {
-                throw new DniReadException("DNI_00000000T", "failure", true, null);
-            }
+            readerName -> { throw new DniReadException(DniErrorCode.READER_NOT_FOUND); }
         );
 
-        assertFalse(response.contains("00000000T"));
-        assertEquals(
-            "INTERNAL_ERROR",
-            JSON.readTree(response).path("error").path("code").asText()
-        );
+        final JsonNode error = JSON.readTree(response).path("error");
+        assertEquals("READER_NOT_FOUND", error.path("code").asText());
+        assertEquals("configured reader is unavailable", error.path("message").asText());
+        assertTrue(error.path("retryable").asBoolean());
     }
 }

@@ -77,7 +77,7 @@ fn csv_row(record: &ReadRecord) -> Vec<String> {
         record.read_at.to_rfc3339(),
         protect_csv(&record.reader),
         record.source.clone(),
-        record.integrity.sod_signature.clone(),
+        record.integrity.sod_signature.as_str().to_owned(),
         protect_csv(&document.nombre),
         protect_csv(&document.primer_apellido),
         protect_csv(&document.segundo_apellido),
@@ -99,7 +99,7 @@ fn csv_row(record: &ReadRecord) -> Vec<String> {
         protect_csv(&document.pais),
         protect_csv(&document.version_dnie),
         protect_csv(&document.serial_chip),
-        record.integrity.dg13_hash.clone(),
+        record.integrity.dg13_hash.as_str().to_owned(),
     ]
     .into_iter()
     .collect()

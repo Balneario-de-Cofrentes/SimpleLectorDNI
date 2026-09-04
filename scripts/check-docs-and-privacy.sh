@@ -13,10 +13,17 @@ for path in \
   docs/RESEARCH.md \
   docs/PRIVACY.md \
   docs/COMPATIBILITY.md \
-  docs/MANUAL_TESTS.md
+  docs/MANUAL_TESTS.md \
+  scripts/release-files.txt \
+  scripts/runtime-modules.txt
 do
   test -s "$path"
 done
+
+while IFS= read -r path; do
+  test -n "$path" || continue
+  test -f "$path"
+done < scripts/release-files.txt
 
 rg -q 'Licencias Rust de terceros' THIRD_PARTY_LICENSES.html
 test "$(tr -d '\r\n' < .java-version)" = '21.0.12.1+1'

@@ -29,7 +29,7 @@ final class Dg13Reader implements DniReader {
             throw e;
         }
         catch (final Exception e) {
-            throw new DniReadException("CARD_READ_FAILED", "could not read DNIe", true, e);
+            throw new DniReadException(DniErrorCode.CARD_READ_FAILED, e);
         }
         finally {
             closeQuietly(connection);
@@ -46,12 +46,7 @@ final class Dg13Reader implements DniReader {
         final BcCryptoHelper crypto = new BcCryptoHelper();
         final Dnie card = DnieFactory.getDnie(connection, null, crypto, null, false);
         if (!(card instanceof Dnie3 dnie)) {
-            throw new DniReadException(
-                "UNSUPPORTED_CARD",
-                "inserted card is not a supported DNIe",
-                false,
-                null
-            );
+            throw new DniReadException(DniErrorCode.UNSUPPORTED_CARD);
         }
         return readDg13(dnie, crypto);
     }
@@ -66,12 +61,7 @@ final class Dg13Reader implements DniReader {
                 return index;
             }
         }
-        throw new DniReadException(
-            "READER_NOT_FOUND",
-            "configured reader is unavailable",
-            true,
-            null
-        );
+        throw new DniReadException(DniErrorCode.READER_NOT_FOUND);
     }
 
     private static DniReadResult readDg13(
@@ -136,14 +126,9 @@ final class Dg13Reader implements DniReader {
             dg13Bytes
         );
         if (!Arrays.equals(actual, expected.getDataGroupHashValue())) {
-            throw new DniReadException(
-                "INTEGRITY_ERROR",
-                "DG13 integrity verification failed",
-                false,
-                null
-            );
+            throw new DniReadException(DniErrorCode.INTEGRITY_ERROR);
         }
-        return new IntegrityResult("verified", "verified");
+        return new IntegrityResult(VerificationStatus.VERIFIED, VerificationStatus.VERIFIED);
     }
 
     private static DataGroupHash dg13Hash(final LdsSecurityObject securityObject)
@@ -153,12 +138,7 @@ final class Dg13Reader implements DniReader {
                 return hash;
             }
         }
-        throw new DniReadException(
-            "INTEGRITY_ERROR",
-            "SOD does not contain a DG13 hash",
-            false,
-            null
-        );
+        throw new DniReadException(DniErrorCode.INTEGRITY_ERROR);
     }
 
     private static String readDnieVersion(final Dnie3 dnie) throws Exception {

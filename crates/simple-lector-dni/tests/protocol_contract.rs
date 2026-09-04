@@ -1,5 +1,8 @@
 use simple_lector_dni::engine_protocol::{DocumentData, EngineRequest, EngineResponse};
 
+const SUCCESS_RESPONSE: &str = include_str!("../../../protocol/examples/success.json");
+const PROTOCOL_SCHEMA: &str = include_str!("../../../protocol/engine-v1.schema.json");
+
 #[test]
 fn read_request_identifies_the_reader_by_stable_name() {
     let request = EngineRequest::read("Synthetic reader");
@@ -11,39 +14,7 @@ fn read_request_identifies_the_reader_by_stable_name() {
 
 #[test]
 fn protocol_contract() {
-    let json = r#"{
-        "protocol": 1,
-        "status": "ok",
-        "document": {
-            "nombre": "ANA",
-            "primer_apellido": "EJEMPLO",
-            "segundo_apellido": "PRUEBA",
-            "apellidos": "EJEMPLO PRUEBA",
-            "dni": "00000000T",
-            "dni_formateado": "00000000-T",
-            "fecha_nacimiento": "1990-01-01",
-            "nacionalidad": "ESP",
-            "fecha_caducidad": "2030-01-01",
-            "numero_soporte": "AAA000000",
-            "sexo": "F",
-            "ciudad_nacimiento": "MADRID",
-            "provincia_nacimiento": "MADRID",
-            "pais_nacimiento": "ESPANA",
-            "nombres_progenitores": "PERSONA UNO / PERSONA DOS",
-            "direccion": "CALLE DE EJEMPLO 1",
-            "localidad": "MADRID",
-            "provincia": "MADRID",
-            "pais": "ESPANA",
-            "version_dnie": "4.0",
-            "serial_chip": "01020304"
-        },
-        "integrity": {
-            "sod_signature": "verified",
-            "dg13_hash": "verified"
-        }
-    }"#;
-
-    let response: EngineResponse = serde_json::from_str(json).expect("valid response");
+    let response: EngineResponse = serde_json::from_str(SUCCESS_RESPONSE).expect("valid response");
     let EngineResponse::Ok {
         protocol,
         document,
@@ -60,4 +31,86 @@ fn protocol_contract() {
 
     let empty = DocumentData::default();
     assert!(empty.direccion.is_empty());
+}
+
+#[test]
+fn protocol_rejects_unknown_integrity_status() {
+    let invalid = SUCCESS_RESPONSE.replacen("verified", "unknown", 1);
+
+    assert!(serde_json::from_str::<EngineResponse>(&invalid).is_err());
+}
+
+#[test]
+fn document_fields_match_schema_and_shared_fixture() {
+    let schema: serde_json::Value = serde_json::from_str(PROTOCOL_SCHEMA).unwrap();
+    let fixture: serde_json::Value = serde_json::from_str(SUCCESS_RESPONSE).unwrap();
+    let rust_model = serde_json::to_value(DocumentData::default()).unwrap();
+
+    let document = &schema["$defs"]["document"];
+    assert_object_contract(&fixture["document"], document);
+    assert_string_properties(&fixture["document"], document);
+
+    let expected = sorted_strings(&document["required"]);
+    assert_eq!(sorted_keys(&fixture["document"]), expected);
+    assert_eq!(sorted_keys(&rust_model), expected);
+}
+
+#[test]
+fn shared_fixture_matches_success_and_integrity_schema() {
+    let schema: serde_json::Value = serde_json::from_str(PROTOCOL_SCHEMA).unwrap();
+    let fixture: serde_json::Value = serde_json::from_str(SUCCESS_RESPONSE).unwrap();
+    let success = &schema["$defs"]["success"];
+    let integrity = &schema["$defs"]["integrity"];
+
+    assert_object_contract(&fixture, success);
+    assert_eq!(
+        fixture["protocol"],
+        success["properties"]["protocol"]["const"]
+    );
+    assert_eq!(fixture["status"], success["properties"]["status"]["const"]);
+    assert_object_contract(&fixture["integrity"], integrity);
+    assert_enum_properties(&fixture["integrity"], integrity);
+}
+
+fn assert_object_contract(value: &serde_json::Value, definition: &serde_json::Value) {
+    let required = sorted_strings(&definition["required"]);
+    assert_eq!(sorted_keys(value), required);
+    assert_eq!(sorted_keys(&definition["properties"]), required);
+    assert_eq!(definition["additionalProperties"], false);
+}
+
+fn assert_string_properties(value: &serde_json::Value, definition: &serde_json::Value) {
+    for (name, property) in definition["properties"].as_object().unwrap() {
+        assert_eq!(property["type"], "string", "schema type for {name}");
+        assert!(value[name].is_string(), "fixture type for {name}");
+    }
+}
+
+fn assert_enum_properties(value: &serde_json::Value, definition: &serde_json::Value) {
+    for (name, property) in definition["properties"].as_object().unwrap() {
+        let allowed = property["enum"].as_array().unwrap();
+        assert!(allowed.contains(&value[name]), "fixture enum for {name}");
+    }
+}
+
+fn sorted_strings(value: &serde_json::Value) -> Vec<String> {
+    let mut values = value
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|item| item.as_str().unwrap().to_owned())
+        .collect::<Vec<_>>();
+    values.sort();
+    values
+}
+
+fn sorted_keys(value: &serde_json::Value) -> Vec<String> {
+    let mut keys = value
+        .as_object()
+        .unwrap()
+        .keys()
+        .cloned()
+        .collect::<Vec<_>>();
+    keys.sort();
+    keys
 }

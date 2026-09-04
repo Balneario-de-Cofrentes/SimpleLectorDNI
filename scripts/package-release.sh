@@ -24,15 +24,20 @@ temporary_root=$(mktemp -d "${TMPDIR:-/tmp}/simple-lector-dni.XXXXXX")
 trap 'rm -rf -- "$temporary_root"' EXIT HUP INT TERM
 package_dir="$temporary_root/$package_name"
 
-mkdir -p "$package_dir/engine" "$package_dir/protocol"
+mkdir -p "$package_dir/engine"
 cp target/release/simple-lector-dni "$package_dir/simple-lector-dni"
 cp engine/jmulticard-worker/target/simple-lector-dni-engine.jar "$package_dir/engine/"
-cp protocol/engine-v1.schema.json "$package_dir/protocol/"
-cp .java-version README.md LICENSE RUNTIME_SOURCE.md THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.md \
-  THIRD_PARTY_LICENSES.html "$package_dir/"
+while IFS= read -r source; do
+  test -n "$source" || continue
+  destination="$package_dir/$source"
+  mkdir -p "$(dirname -- "$destination")"
+  cp "$source" "$destination"
+done < scripts/release-files.txt
+
+runtime_modules=$(tr -d '\r\n' < scripts/runtime-modules.txt)
 
 "$JAVA_HOME/bin/jlink" \
-  --add-modules java.base,java.desktop,java.logging,java.naming,java.smartcardio,java.sql,jdk.crypto.ec \
+  --add-modules "$runtime_modules" \
   --compress zip-6 \
   --strip-debug \
   --no-header-files \

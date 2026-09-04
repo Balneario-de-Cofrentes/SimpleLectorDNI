@@ -1,0 +1,82 @@
+name: Build, test and package
+description: Shared cross-platform pipeline for CI and releases
+
+inputs:
+  package:
+    description: Packaging shell, either sh or powershell
+    required: true
+  artifact-name:
+    description: Uploaded artifact name
+    required: true
+  validate-docs:
+    description: Run documentation and privacy checks
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+      with:
+        distribution: temurin
+        java-version-file: ".java-version"
+        cache: maven
+
+    - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+      with:
+        toolchain: "1.88.0"
+        components: clippy,rustfmt
+
+    - uses: Swatinem/rust-cache@63fed3e2fecf6f7b51dc6f043341b79ef82a9ae7 # v2.9.2
+
+    - name: Install ripgrep on macOS
+      if: runner.os == 'macOS'
+      shell: bash
+      run: command -v rg >/dev/null || brew install ripgrep
+
+    - name: Install ripgrep on Windows
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        if (-not (Get-Command rg -ErrorAction SilentlyContinue)) {
+          choco install ripgrep --yes --no-progress
+        }
+
+    - name: Rust format
+      shell: bash
+      run: cargo fmt --all -- --check
+
+    - name: Rust lint
+      shell: bash
+      run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+    - name: Rust tests
+      shell: bash
+      run: cargo test --workspace --locked
+
+    - name: Prevent biometric access
+      shell: bash
+      run: scripts/check-no-biometric-access.sh
+
+    - name: Validate documentation and privacy guardrails
+      if: inputs.validate-docs == 'true'
+      shell: bash
+      run: scripts/check-docs-and-privacy.sh
+
+    - name: Package macOS
+      if: inputs.package == 'sh'
+      shell: bash
+      env:
+        MVN: mvn
+      run: scripts/package-release.sh
+
+    - name: Package Windows
+      if: inputs.package == 'powershell'
+      shell: pwsh
+      run: scripts/package-release.ps1
+
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: dist/*.zip
+        if-no-files-found: error
