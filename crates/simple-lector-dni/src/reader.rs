@@ -12,6 +12,17 @@ pub enum ReaderPresence {
     Unavailable,
 }
 
+impl ReaderPresence {
+    #[must_use]
+    pub const fn describe(self) -> &'static str {
+        match self {
+            Self::Empty => "vacío",
+            Self::Present => "con tarjeta",
+            Self::Unavailable => "no disponible",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReaderInfo {
     pub index: usize,
@@ -45,9 +56,15 @@ impl ReaderSelection {
     pub(crate) fn new(readers: &[ReaderInfo], pattern: Option<&str>) -> Result<Self, ReaderError> {
         let selected = optional_reader(readers, pattern)?;
         Ok(Self {
-            pattern: pattern.map(str::to_lowercase),
+            pattern: pattern.map(str::to_owned),
             selected,
         })
+    }
+
+    /// Re-evaluates the selection against a fresh snapshot, keeping the same pattern.
+    pub(crate) fn resync(&mut self, readers: &[ReaderInfo]) -> Result<(), ReaderError> {
+        self.selected = optional_reader(readers, self.pattern.as_deref())?;
+        Ok(())
     }
 
     pub(crate) fn selected(&self) -> Option<&ReaderInfo> {
@@ -80,26 +97,28 @@ impl ReaderSelection {
 
     fn matches(&self, reader: &ReaderInfo) -> bool {
         self.pattern
-            .as_ref()
-            .is_none_or(|pattern| reader.name.to_lowercase().contains(pattern))
+            .as_deref()
+            .is_none_or(|pattern| name_matches(&reader.name, pattern))
     }
 }
 
 #[derive(Debug, Error)]
 pub enum ReaderError {
-    #[error("PC/SC error: {0}")]
+    #[error("error PC/SC: {0}")]
     Pcsc(#[from] pcsc::Error),
-    #[error("no smart-card readers are connected")]
+    #[error("no hay lectores de tarjetas conectados")]
     NoReaders,
-    #[error("reader matching '{0}' was not found")]
+    #[error("no se encontró ningún lector que contenga '{0}'")]
     NotFound(String),
-    #[error("reader pattern '{0}' is ambiguous")]
+    #[error("el patrón de lector '{0}' es ambiguo")]
     Ambiguous(String),
 }
 
 pub trait ReaderMonitor {
     fn initialise(&mut self) -> Result<Vec<ReaderInfo>, ReaderError>;
     fn wait_for_events(&mut self, delay: Duration) -> Result<Vec<ReaderEvent>, ReaderError>;
+    /// Re-establishes the PC/SC session after an error and returns the fresh snapshot.
+    fn recover(&mut self) -> Result<Vec<ReaderInfo>, ReaderError>;
 }
 
 pub struct PcscMonitor {
@@ -145,6 +164,11 @@ impl ReaderMonitor for PcscMonitor {
         self.previous = current;
         Ok(events)
     }
+
+    fn recover(&mut self) -> Result<Vec<ReaderInfo>, ReaderError> {
+        self.context = Context::establish(Scope::User)?;
+        self.initialise()
+    }
 }
 
 fn to_reader_info(states: &[ReaderState]) -> Vec<ReaderInfo> {
@@ -178,13 +202,17 @@ pub fn select_reader(
     let Some(pattern) = pattern else {
         return readers.first().cloned().ok_or(ReaderError::NoReaders);
     };
-    let pattern_lower = pattern.to_lowercase();
     let matches: Vec<_> = readers
         .iter()
-        .filter(|reader| reader.name.to_lowercase().contains(&pattern_lower))
+        .filter(|reader| name_matches(&reader.name, pattern))
         .cloned()
         .collect();
     selected_match(matches, pattern)
+}
+
+/// Case-insensitive substring match shared by `select_reader` and `ReaderSelection`.
+fn name_matches(name: &str, pattern: &str) -> bool {
+    name.to_lowercase().contains(&pattern.to_lowercase())
 }
 
 fn optional_reader(

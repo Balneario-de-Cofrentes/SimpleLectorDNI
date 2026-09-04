@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 pub const ENGINE_PROTOCOL_VERSION: u8 = 1;
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct DocumentData {
     pub nombre: String,
     pub primer_apellido: String,
@@ -27,46 +28,34 @@ pub struct DocumentData {
     pub serial_chip: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-pub struct IntegrityResult {
-    pub sod_signature: String,
-    pub dg13_hash: String,
-}
-
+/// The worker aborts any read whose SOD signature or DG13 hash fails, so a delivered
+/// record can only carry this value. It means the DG13 bytes match the hash signed in
+/// the SOD and the SOD signature matches the certificate the SOD itself carries. It
+/// does not mean that certificate was validated against the CSCA.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VerificationStatus {
     Verified,
-    Unverified,
 }
 
 impl VerificationStatus {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Verified => "verified",
-            Self::Unverified => "unverified",
-        }
+        "verified"
     }
 }
 
-#[derive(Deserialize)]
-struct IntegrityResultWire {
-    sod_signature: VerificationStatus,
-    dg13_hash: VerificationStatus,
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct IntegrityResult {
+    pub sod_signature: VerificationStatus,
+    pub dg13_hash: VerificationStatus,
 }
 
-impl<'de> Deserialize<'de> for IntegrityResult {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let wire = IntegrityResultWire::deserialize(deserializer)?;
-        Ok(Self {
-            sod_signature: wire.sod_signature.as_str().to_owned(),
-            dg13_hash: wire.dg13_hash.as_str().to_owned(),
-        })
-    }
+impl IntegrityResult {
+    pub const VERIFIED: Self = Self {
+        sod_signature: VerificationStatus::Verified,
+        dg13_hash: VerificationStatus::Verified,
+    };
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

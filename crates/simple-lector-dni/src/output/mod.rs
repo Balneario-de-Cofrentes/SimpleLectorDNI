@@ -3,26 +3,27 @@ mod files;
 mod webhook;
 
 use std::fmt::Debug;
+use std::path::Path;
 
 use thiserror::Error;
 
 use crate::model::ReadRecord;
 
-pub use csv_sink::CsvSink;
+pub use csv_sink::{CSV_HEADERS, CsvSink};
 pub use files::{JsonFileSink, JsonLinesSink, StdoutSink};
 pub use webhook::WebhookSink;
 
 #[derive(Debug, Error)]
 pub enum OutputError {
-    #[error("I/O error: {0}")]
+    #[error("error de E/S: {0}")]
     Io(#[from] std::io::Error),
-    #[error("JSON serialization failed: {0}")]
+    #[error("fallo al serializar JSON: {0}")]
     Json(#[from] serde_json::Error),
-    #[error("CSV serialization failed: {0}")]
+    #[error("fallo al serializar CSV: {0}")]
     Csv(#[from] csv::Error),
-    #[error("invalid output configuration: {0}")]
+    #[error("configuración de salida inválida: {0}")]
     Configuration(String),
-    #[error("delivery failed: {0}")]
+    #[error("entrega fallida: {0}")]
     Delivery(String),
 }
 
@@ -31,7 +32,9 @@ pub trait Sink: Debug + Send + Sync {
     fn deliver(&self, record: &ReadRecord) -> Result<(), OutputError>;
 }
 
-#[derive(Debug, Eq, PartialEq)]
+/// Which sink failed and why. Messages come from I/O, HTTP or CSV errors and never
+/// include document fields.
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DeliveryFailure {
     pub sink: &'static str,
     pub message: String,
@@ -58,12 +61,17 @@ pub fn deliver_all(sinks: &[&dyn Sink], record: &ReadRecord) -> DeliveryReport {
     report
 }
 
-pub(crate) fn open_private_append(path: &std::path::Path) -> std::io::Result<std::fs::File> {
+/// Opens an append-only file readable by the current account only.
+pub(crate) fn open_private_append(path: &Path) -> std::io::Result<std::fs::File> {
+    let created = !path.exists();
     let mut options = std::fs::OpenOptions::new();
     options.create(true).append(true);
     set_private_creation_mode(&mut options);
     let file = options.open(path)?;
     set_private_permissions(&file)?;
+    if created {
+        restrict_to_owner(path)?;
+    }
     Ok(file)
 }
 
@@ -84,5 +92,37 @@ pub(crate) fn set_private_permissions(file: &std::fs::File) -> std::io::Result<(
 
 #[cfg(not(unix))]
 pub(crate) fn set_private_permissions(_: &std::fs::File) -> std::io::Result<()> {
+    Ok(())
+}
+
+/// Windows has no mode bits: replace the inherited DACL with one entry for the
+/// current account, the equivalent of 0600.
+#[cfg(windows)]
+pub(crate) fn restrict_to_owner(path: &Path) -> std::io::Result<()> {
+    let user = std::env::var("USERNAME")
+        .map_err(|_| std::io::Error::other("USERNAME no está definida"))?;
+    let account = match std::env::var("USERDOMAIN") {
+        Ok(domain) if !domain.is_empty() => format!("{domain}\\{user}"),
+        _ => user,
+    };
+    let output = std::process::Command::new("icacls")
+        .arg(path)
+        .args(["/inheritance:r", "/grant:r"])
+        .arg(format!("{account}:F"))
+        .arg("/q")
+        .output()?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(std::io::Error::other(format!(
+            "icacls devolvió {}: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        )))
+    }
+}
+
+#[cfg(not(windows))]
+pub(crate) fn restrict_to_owner(_: &Path) -> std::io::Result<()> {
     Ok(())
 }

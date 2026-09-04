@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use simple_lector_dni::cli::WEBHOOK_TOKEN_VARIABLE;
 use simple_lector_dni::engine::{DniEngine, ProcessEngine};
 use simple_lector_dni::reader::{ReaderInfo, ReaderPresence};
 
@@ -34,7 +35,7 @@ fn process_engine_rejects_invalid_json() {
         .unwrap_err();
 
     assert_eq!(error.code, "INVALID_ENGINE_RESPONSE");
-    assert!(error.retryable);
+    assert!(!error.retryable);
 }
 
 #[test]
@@ -46,7 +47,7 @@ fn process_engine_reports_nonzero_exit_without_stderr_contents() {
     .read(&reader())
     .unwrap_err();
 
-    assert_eq!(error.code, "ENGINE_EXIT");
+    assert!(error.code.starts_with("ENGINE_EXIT"), "{}", error.code);
     assert!(!error.to_string().contains("00000000T"));
 }
 
@@ -58,6 +59,47 @@ fn process_engine_has_a_bounded_timeout() {
 
     assert_eq!(error.code, "ENGINE_TIMEOUT");
     assert!(error.retryable);
+}
+
+#[test]
+fn missing_engine_program_fails_once_with_its_path() {
+    let engine = ProcessEngine::new(
+        "/nonexistent/simple-lector-dni-java".into(),
+        vec![],
+        NORMAL_PROCESS_TIMEOUT,
+    );
+
+    let error = engine.read(&reader()).unwrap_err();
+
+    assert_eq!(error.code, "ENGINE_START_FAILED");
+    assert!(!error.retryable);
+    assert!(
+        error.to_string().contains("simple-lector-dni-java"),
+        "{error}"
+    );
+}
+
+#[test]
+fn nonzero_exit_reports_the_exit_code() {
+    let error = fake_engine(FakeBehavior::StderrAndExit("boom"), NORMAL_PROCESS_TIMEOUT)
+        .read(&reader())
+        .unwrap_err();
+
+    assert_eq!(error.code, "ENGINE_EXIT_7");
+}
+
+#[test]
+fn engine_process_does_not_inherit_the_webhook_token() {
+    // SAFETY: tests in this binary that read the variable run after this write or not at all.
+    unsafe { std::env::set_var(WEBHOOK_TOKEN_VARIABLE, "synthetic-secret") };
+    let engine = fake_engine(FakeBehavior::ExitIfTokenVisible, NORMAL_PROCESS_TIMEOUT);
+
+    let error = engine.read(&reader()).unwrap_err();
+
+    assert_eq!(
+        error.code, "INVALID_ENGINE_RESPONSE",
+        "token was visible or output differed"
+    );
 }
 
 #[test]
@@ -78,6 +120,8 @@ enum FakeBehavior {
     Stdout(&'static str),
     StderrAndExit(&'static str),
     Sleep,
+    /// Exits 3 when the token is visible; otherwise prints an empty response.
+    ExitIfTokenVisible,
 }
 
 #[cfg(unix)]
@@ -86,6 +130,9 @@ fn fake_engine(behavior: FakeBehavior, timeout: Duration) -> ProcessEngine {
         FakeBehavior::Stdout(value) => format!("printf '%s' '{value}'"),
         FakeBehavior::StderrAndExit(value) => format!("printf '%s' '{value}' >&2; exit 7"),
         FakeBehavior::Sleep => "sleep 2".to_owned(),
+        FakeBehavior::ExitIfTokenVisible => {
+            format!("test -z \"${WEBHOOK_TOKEN_VARIABLE}\" || exit 3; printf ''")
+        }
     };
     ProcessEngine::new("/bin/sh".into(), vec!["-c".into(), script.into()], timeout)
 }
@@ -101,6 +148,9 @@ fn fake_engine(behavior: FakeBehavior, timeout: Duration) -> ProcessEngine {
             value.replace('\'', "''")
         ),
         FakeBehavior::Sleep => "Start-Sleep -Seconds 2".to_owned(),
+        FakeBehavior::ExitIfTokenVisible => {
+            format!("if ($env:{WEBHOOK_TOKEN_VARIABLE}) {{ exit 3 }}")
+        }
     };
     ProcessEngine::new(
         "powershell.exe".into(),

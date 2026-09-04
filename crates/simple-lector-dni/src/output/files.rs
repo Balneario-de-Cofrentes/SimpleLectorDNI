@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use atomic_write_file::AtomicWriteFile;
 
-use super::{OutputError, Sink, open_private_append, set_private_permissions};
+use super::{OutputError, Sink, open_private_append, restrict_to_owner, set_private_permissions};
 use crate::model::ReadRecord;
 
 #[derive(Debug)]
@@ -47,6 +47,7 @@ impl Sink for JsonFileSink {
         serde_json::to_writer_pretty(&mut file, record)?;
         file.write_all(b"\n")?;
         file.commit()?;
+        restrict_to_owner(&self.path)?;
         Ok(())
     }
 }

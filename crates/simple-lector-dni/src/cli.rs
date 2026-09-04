@@ -2,6 +2,10 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
 
+/// Environment variable read for the webhook bearer token. It is never passed on the
+/// command line and it is removed from the engine process environment.
+pub const WEBHOOK_TOKEN_VARIABLE: &str = "SIMPLE_LECTOR_DNI_WEBHOOK_TOKEN";
+
 #[derive(Debug, Parser)]
 #[command(
     name = "simple-lector-dni",
@@ -16,11 +20,21 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Espera un DNI, lo lee una vez y termina.
-    Once(RunOptions),
+    Once(OnceOptions),
     /// Vigila inserciones y retiradas continuamente.
     Watch(RunOptions),
     /// Muestra los lectores PC/SC disponibles.
     ListReaders,
+}
+
+#[derive(Clone, Debug, Args)]
+pub struct OnceOptions {
+    #[command(flatten)]
+    pub run: RunOptions,
+
+    /// Segundos máximos de espera hasta que se inserte un DNIe.
+    #[arg(long, value_name = "SEGUNDOS")]
+    pub timeout_seconds: Option<u64>,
 }
 
 #[derive(Clone, Debug, Args)]
@@ -59,7 +73,7 @@ pub struct OutputOptions {
     #[arg(long, value_name = "PATH")]
     pub csv: Option<PathBuf>,
 
-    /// Envía cada registro con POST JSON.
+    /// Envía cada registro con POST JSON. El token se lee de SIMPLE_LECTOR_DNI_WEBHOOK_TOKEN.
     #[arg(long, value_name = "HTTPS_URL")]
     pub webhook: Option<String>,
 

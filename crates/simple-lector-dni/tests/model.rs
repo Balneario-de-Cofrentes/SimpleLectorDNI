@@ -12,17 +12,12 @@ fn read_record_has_stable_versioned_envelope() {
         dni: "00000000T".to_owned(),
         ..DocumentData::default()
     };
-    let integrity = IntegrityResult {
-        sod_signature: "verified".to_owned(),
-        dg13_hash: "verified".to_owned(),
-    };
-
     let record = ReadRecord::new(
         read_id,
         read_at,
         "Generic EMV Smartcard Reader".to_owned(),
         document,
-        integrity,
+        IntegrityResult::VERIFIED,
     );
     let json = serde_json::to_value(record).unwrap();
 
@@ -33,21 +28,4 @@ fn read_record_has_stable_versioned_envelope() {
     assert_eq!(json["source"], "DNIe_DG13");
     assert_eq!(json["document"]["nombre"], "ANA");
     assert_eq!(json["integrity"]["dg13_hash"], "verified");
-}
-
-#[test]
-fn absent_document_values_stay_empty_for_csv_compatibility() {
-    let record = ReadRecord::new(
-        Uuid::nil(),
-        DateTime::parse_from_rfc3339("2026-09-04T00:00:00Z").unwrap(),
-        "reader".to_owned(),
-        DocumentData::default(),
-        IntegrityResult {
-            sod_signature: "unverified".to_owned(),
-            dg13_hash: "unverified".to_owned(),
-        },
-    );
-
-    assert!(record.document.direccion.is_empty());
-    assert!(record.document.segundo_apellido.is_empty());
 }

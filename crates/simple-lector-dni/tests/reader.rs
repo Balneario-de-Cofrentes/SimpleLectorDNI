@@ -44,13 +44,13 @@ fn selection_rejects_ambiguous_and_missing_patterns() {
         select_reader(&readers, Some("acme"))
             .unwrap_err()
             .to_string()
-            .contains("ambiguous")
+            .contains("ambiguo")
     );
     assert!(
         select_reader(&readers, Some("missing"))
             .unwrap_err()
             .to_string()
-            .contains("not found")
+            .contains("no se encontró")
     );
 }
 

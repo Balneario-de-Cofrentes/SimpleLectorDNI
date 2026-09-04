@@ -102,6 +102,11 @@
         <td>MIT OR Apache-2.0</td>
       </tr>
       <tr>
+        <td><a href="https://github.com/servo/core-foundation-rs">core-foundation</a></td>
+        <td>0.10.1</td>
+        <td>MIT OR Apache-2.0</td>
+      </tr>
+      <tr>
         <td><a href="https://github.com/servo/core-foundation-rs">core-foundation-sys</a></td>
         <td>0.8.7</td>
         <td>MIT OR Apache-2.0</td>
@@ -312,6 +317,11 @@
         <td>MIT OR Apache-2.0</td>
       </tr>
       <tr>
+        <td><a href="https://github.com/rustls/rustls-platform-verifier">rustls-platform-verifier</a></td>
+        <td>0.7.0</td>
+        <td>MIT OR Apache-2.0</td>
+      </tr>
+      <tr>
         <td><a href="https://github.com/rustls/webpki">rustls-webpki</a></td>
         <td>0.103.15</td>
         <td>ISC</td>
@@ -320,6 +330,16 @@
         <td><a href="https://github.com/dtolnay/ryu">ryu</a></td>
         <td>1.0.23</td>
         <td>Apache-2.0 OR BSL-1.0</td>
+      </tr>
+      <tr>
+        <td><a href="https://github.com/kornelski/rust-security-framework">security-framework</a></td>
+        <td>3.7.0</td>
+        <td>MIT OR Apache-2.0</td>
+      </tr>
+      <tr>
+        <td><a href="https://github.com/kornelski/rust-security-framework">security-framework-sys</a></td>
+        <td>2.17.0</td>
+        <td>MIT OR Apache-2.0</td>
       </tr>
       <tr>
         <td><a href="https://github.com/serde-rs/serde">serde</a></td>
@@ -784,42 +804,6 @@ not be used in advertising or otherwise to promote the sale, use or other
 dealings in these Data Files or Software without prior written
 authorization of the copyright holder.
 </pre>
-    <h3 id="ISC">ISC License</h3>
-    <pre>/* Copyright (c) 2014, Intel Corporation.
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED &quot;AS IS&quot; AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
-
-#ifndef OPENSSL_HEADER_EC_ECP_NISTZ384_H
-#define OPENSSL_HEADER_EC_ECP_NISTZ384_H
-
-#include &quot;../../limbs/limbs.h&quot;
-
-#define P384_LIMBS (384u / LIMB_BITS)
-
-typedef struct {
-  Limb X[P384_LIMBS];
-  Limb Y[P384_LIMBS];
-  Limb Z[P384_LIMBS];
-} P384_POINT;
-
-typedef struct {
-  Limb X[P384_LIMBS];
-  Limb Y[P384_LIMBS];
-} P384_POINT_AFFINE;
-
-
-#endif // OPENSSL_HEADER_EC_ECP_NISTZ384_H
-</pre>
     <h3 id="MIT">MIT License</h3>
     <pre>Copyright (c) 2018 Carl Lerche
 
@@ -846,6 +830,21 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+</pre>
+    <h3 id="ISC">ISC License</h3>
+    <pre>// Copyright 2015-2016 Brian Smith.
+//
+// Permission to use, copy, modify, and/or distribute this software for any
+// purpose with or without fee is hereby granted, provided that the above
+// copyright notice and this permission notice appear in all copies.
+//
+// THE SOFTWARE IS PROVIDED &quot;AS IS&quot; AND THE AUTHORS DISCLAIM ALL WARRANTIES
+// WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR
+// ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+// WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+// ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+// OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 </pre>
     <h3 id="BSD-3-Clause">BSD 3-Clause &quot;New&quot; or &quot;Revised&quot; License</h3>
     <pre>Copyright (c) 2016-2017 Isis Agora Lovecruft, Henry de Valence. All rights reserved.
@@ -876,7 +875,7 @@ TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
 PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
 LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 </pre>
     <h3 id="CDLA-Permissive-2.0">Community Data License Agreement Permissive 2.0</h3>
     <pre># Community Data License Agreement - Permissive - Version 2.0

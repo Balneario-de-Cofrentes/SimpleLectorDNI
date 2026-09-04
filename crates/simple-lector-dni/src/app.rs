@@ -1,16 +1,20 @@
+use std::ops::ControlFlow;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use chrono::Local;
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::cli::{Cli, Command, OutputOptions, RunOptions};
+use crate::cli::{Cli, Command, OnceOptions, OutputOptions, RunOptions, WEBHOOK_TOKEN_VARIABLE};
 use crate::engine::{DniEngine, EngineFailure, EngineRead, ProcessEngine};
-use crate::lifecycle::{CardLifecycle, LifecycleAction, LifecycleEvent, run_with_retries};
+use crate::lifecycle::{
+    CardLifecycle, LifecycleAction, LifecycleEvent, LifecycleState, run_with_retries,
+};
 use crate::model::ReadRecord;
 use crate::output::{
-    CsvSink, JsonFileSink, JsonLinesSink, OutputError, Sink, StdoutSink, WebhookSink, deliver_all,
+    CsvSink, DeliveryFailure, JsonFileSink, JsonLinesSink, OutputError, Sink, StdoutSink,
+    WebhookSink, deliver_all,
 };
 use crate::reader::{
     PcscMonitor, ReaderError, ReaderEvent, ReaderInfo, ReaderMonitor, ReaderPresence,
@@ -18,20 +22,98 @@ use crate::reader::{
 };
 
 const POLL_DELAY: Duration = Duration::from_millis(250);
+const RECOVERY_DELAY: Duration = Duration::from_secs(1);
 const ENGINE_TIMEOUT: Duration = Duration::from_secs(20);
 
 #[derive(Debug, Error)]
 pub enum AppError {
-    #[error("reader error: {0}")]
+    #[error("error del lector: {0}")]
     Reader(#[from] ReaderError),
-    #[error("output error: {0}")]
+    #[error("error de salida: {0}")]
     Output(#[from] OutputError),
-    #[error("could not initialise DNIe engine: {0}")]
+    #[error("no se pudo iniciar el motor DNIe: {0}")]
     Engine(#[from] EngineFailure),
-    #[error("DNIe read failed after {attempts} attempt(s), code {code}")]
+    #[error(transparent)]
+    Cycle(#[from] CycleError),
+    #[error("no se insertó ningún DNIe en {0} segundos")]
+    Timeout(u64),
+}
+
+/// Failure of one insertion cycle: the read itself or one or more outputs.
+#[derive(Debug, Error)]
+pub enum CycleError {
+    #[error("la lectura del DNIe falló tras {attempts} intento(s), código {code}")]
     Read { attempts: u8, code: String },
-    #[error("{0} configured output(s) failed")]
-    Delivery(usize),
+    #[error("{} salida(s) configurada(s) fallaron", .0.len())]
+    Delivery(Vec<DeliveryFailure>),
+}
+
+/// What the session is doing, emitted to the CLI (stderr) or to a GUI. Never carries
+/// document fields.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Progress {
+    WaitingForReader,
+    WaitingForCard {
+        reader: String,
+    },
+    Reading {
+        reader: String,
+        attempt: u8,
+        attempts: u8,
+    },
+    Delivered {
+        read_id: Uuid,
+        delivered: usize,
+    },
+    WaitingForRemoval {
+        reader: String,
+    },
+    ReadFailed {
+        attempts: u8,
+        code: String,
+    },
+    OutputFailed {
+        sink: &'static str,
+        message: String,
+    },
+    MonitorFailed {
+        message: String,
+    },
+    MonitorRecovered,
+}
+
+/// Receives progress; returning `Break` stops the session cleanly.
+pub type ProgressSink<'a> = dyn FnMut(Progress) -> ControlFlow<()> + 'a;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SessionMode {
+    Once { timeout: Option<Duration> },
+    Watch,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SessionOptions {
+    pub attempts: u8,
+    pub retry_delay: Duration,
+    pub poll_delay: Duration,
+    pub recovery_delay: Duration,
+}
+
+impl SessionOptions {
+    fn from_cli(options: &RunOptions) -> Self {
+        Self {
+            attempts: options.attempts,
+            retry_delay: Duration::from_millis(options.retry_delay_ms),
+            poll_delay: POLL_DELAY,
+            recovery_delay: RECOVERY_DELAY,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ReadOutcome {
+    pub record: ReadRecord,
+    pub delivered: usize,
 }
 
 #[derive(Debug)]
@@ -47,6 +129,13 @@ impl WatchController {
             lifecycle: CardLifecycle::new(selection.selected().is_some()),
             selection,
         })
+    }
+
+    /// Rebuilds the selection from a fresh snapshot after the PC/SC session was lost.
+    pub fn resync(&mut self, readers: &[ReaderInfo]) -> Result<(), AppError> {
+        self.selection.resync(readers)?;
+        self.lifecycle = CardLifecycle::new(self.selection.selected().is_some());
+        Ok(())
     }
 
     #[must_use]
@@ -80,6 +169,22 @@ impl WatchController {
     #[must_use]
     pub fn selected_name(&self) -> Option<&str> {
         self.selection.selected_name()
+    }
+
+    /// The idle state to show an operator: which reader, and whether a card is expected
+    /// or must be removed first.
+    #[must_use]
+    pub fn status(&self) -> Progress {
+        let Some(reader) = self.selection.selected() else {
+            return Progress::WaitingForReader;
+        };
+        let reader = reader.name.clone();
+        match self.lifecycle.state() {
+            LifecycleState::NoReader | LifecycleState::Empty => Progress::WaitingForCard { reader },
+            LifecycleState::Reading | LifecycleState::Delivered | LifecycleState::Failed => {
+                Progress::WaitingForRemoval { reader }
+            }
+        }
     }
 
     fn update_reader_lifecycle(&mut self, event: &ReaderEvent) {
@@ -122,45 +227,272 @@ pub fn run(cli: Cli) -> Result<(), AppError> {
     }
 }
 
+/// One loop for `once` and `watch`: selects the reader, reacts to PC/SC events, runs a
+/// read cycle per insertion and survives PC/SC service failures.
+pub fn run_session(
+    monitor: &mut dyn ReaderMonitor,
+    pattern: Option<&str>,
+    engine: &dyn DniEngine,
+    sinks: &[&dyn Sink],
+    options: &SessionOptions,
+    mode: SessionMode,
+    report: &mut ProgressSink<'_>,
+) -> Result<(), AppError> {
+    let readers = monitor.initialise()?;
+    let mut session = Session {
+        controller: WatchController::new(&readers, pattern)?,
+        engine,
+        sinks,
+        options,
+        mode,
+        report,
+        started: Instant::now(),
+        last_status: None,
+    };
+    session.run(monitor)
+}
+
+struct Session<'a> {
+    controller: WatchController,
+    engine: &'a dyn DniEngine,
+    sinks: &'a [&'a dyn Sink],
+    options: &'a SessionOptions,
+    mode: SessionMode,
+    report: &'a mut ProgressSink<'a>,
+    started: Instant,
+    last_status: Option<Progress>,
+}
+
+impl Session<'_> {
+    fn run(&mut self, monitor: &mut dyn ReaderMonitor) -> Result<(), AppError> {
+        if self.announce_status().is_break() {
+            return Ok(());
+        }
+        if let Some(reader) = self.controller.initial_read()
+            && self.cycle(&reader)?.is_break()
+        {
+            return Ok(());
+        }
+        loop {
+            self.check_deadline()?;
+            let step = match monitor.wait_for_events(self.options.poll_delay) {
+                Ok(events) => self.dispatch(events)?,
+                Err(error) => self.recover(monitor, &error)?,
+            };
+            if step.is_break() {
+                return Ok(());
+            }
+        }
+    }
+
+    fn dispatch(&mut self, events: Vec<ReaderEvent>) -> Result<ControlFlow<()>, AppError> {
+        for event in events {
+            if let Some(reader) = self.controller.handle(event)
+                && self.cycle(&reader)?.is_break()
+            {
+                return Ok(ControlFlow::Break(()));
+            }
+        }
+        Ok(self.announce_status())
+    }
+
+    fn recover(
+        &mut self,
+        monitor: &mut dyn ReaderMonitor,
+        error: &ReaderError,
+    ) -> Result<ControlFlow<()>, AppError> {
+        let mut message = error.to_string();
+        loop {
+            if self.emit(Progress::MonitorFailed { message }).is_break() {
+                return Ok(ControlFlow::Break(()));
+            }
+            thread::sleep(self.options.recovery_delay);
+            self.check_deadline()?;
+            match monitor.recover() {
+                Ok(readers) => {
+                    self.controller.resync(&readers)?;
+                    self.last_status = None;
+                    if self.emit(Progress::MonitorRecovered).is_break()
+                        || self.announce_status().is_break()
+                    {
+                        return Ok(ControlFlow::Break(()));
+                    }
+                    return match self.controller.initial_read() {
+                        Some(reader) => self.cycle(&reader),
+                        None => Ok(ControlFlow::Continue(())),
+                    };
+                }
+                Err(next) => message = next.to_string(),
+            }
+        }
+    }
+
+    fn cycle(&mut self, reader: &ReaderInfo) -> Result<ControlFlow<()>, AppError> {
+        let result = execute_read_cycle(
+            self.engine,
+            reader,
+            self.sinks,
+            self.options.attempts,
+            self.options.retry_delay,
+            &mut *self.report,
+        );
+        let (outcome, flow) = match result {
+            Ok(outcome) => {
+                self.controller.read_succeeded();
+                let flow = self.emit(Progress::Delivered {
+                    read_id: outcome.record.read_id,
+                    delivered: outcome.delivered,
+                });
+                (Ok(()), flow)
+            }
+            Err(error) => {
+                self.controller.read_failed();
+                let flow = self.report_cycle_failure(&error);
+                (Err(error), flow)
+            }
+        };
+        self.last_status = None;
+        let flow = if flow.is_break() {
+            flow
+        } else {
+            self.announce_status()
+        };
+        match self.mode {
+            SessionMode::Once { .. } => {
+                outcome?;
+                Ok(ControlFlow::Break(()))
+            }
+            SessionMode::Watch => Ok(flow),
+        }
+    }
+
+    fn report_cycle_failure(&mut self, error: &CycleError) -> ControlFlow<()> {
+        match error {
+            CycleError::Read { attempts, code } => self.emit(Progress::ReadFailed {
+                attempts: *attempts,
+                code: code.clone(),
+            }),
+            CycleError::Delivery(failures) => {
+                for failure in failures {
+                    let flow = self.emit(Progress::OutputFailed {
+                        sink: failure.sink,
+                        message: failure.message.clone(),
+                    });
+                    if flow.is_break() {
+                        return flow;
+                    }
+                }
+                ControlFlow::Continue(())
+            }
+        }
+    }
+
+    fn announce_status(&mut self) -> ControlFlow<()> {
+        let status = self.controller.status();
+        if self.last_status.as_ref() == Some(&status) {
+            return ControlFlow::Continue(());
+        }
+        self.last_status = Some(status.clone());
+        self.emit(status)
+    }
+
+    fn emit(&mut self, progress: Progress) -> ControlFlow<()> {
+        (self.report)(progress)
+    }
+
+    fn check_deadline(&self) -> Result<(), AppError> {
+        if let SessionMode::Once {
+            timeout: Some(timeout),
+        } = self.mode
+            && self.started.elapsed() >= timeout
+        {
+            return Err(AppError::Timeout(timeout.as_secs()));
+        }
+        Ok(())
+    }
+}
+
+/// Reads the inserted card with retries and delivers the record to every sink.
 pub fn execute_read_cycle(
     engine: &dyn DniEngine,
     reader: &ReaderInfo,
     sinks: &[&dyn Sink],
     attempts: u8,
     retry_delay: Duration,
-) -> Result<ReadRecord, AppError> {
-    let result = read_with_retries(engine, reader, attempts, retry_delay)?;
-    let record = ReadRecord::new(
-        Uuid::new_v4(),
-        Local::now().fixed_offset(),
-        reader.name.clone(),
-        result.document,
-        result.integrity,
-    );
-    let report = deliver_all(sinks, &record);
-    if report.failures.is_empty() {
-        Ok(record)
-    } else {
-        Err(AppError::Delivery(report.failures.len()))
-    }
-}
-
-fn read_with_retries(
-    engine: &dyn DniEngine,
-    reader: &ReaderInfo,
-    attempts: u8,
-    delay: Duration,
-) -> Result<EngineRead, AppError> {
-    run_with_retries(
+    report: &mut ProgressSink<'_>,
+) -> Result<ReadOutcome, CycleError> {
+    let reading = |attempt: u8| Progress::Reading {
+        reader: reader.name.clone(),
+        attempt,
+        attempts,
+    };
+    let _ = report(reading(1));
+    let result = run_with_retries(
         attempts,
         |_| engine.read(reader),
         |error| error.retryable,
-        |_, _| thread::sleep(delay),
+        |attempt, _| {
+            thread::sleep(retry_delay);
+            let _ = report(reading(attempt + 1));
+        },
     )
-    .map_err(|failure| AppError::Read {
+    .map_err(|failure| CycleError::Read {
         attempts: failure.attempts,
         code: failure.last_error.code,
-    })
+    })?;
+    let record = new_record(reader, result);
+    let delivery = deliver_all(sinks, &record);
+    if delivery.failures.is_empty() {
+        Ok(ReadOutcome {
+            record,
+            delivered: delivery.delivered,
+        })
+    } else {
+        Err(CycleError::Delivery(delivery.failures))
+    }
+}
+
+fn new_record(reader: &ReaderInfo, read: EngineRead) -> ReadRecord {
+    ReadRecord::new(
+        Uuid::new_v4(),
+        Local::now().fixed_offset(),
+        reader.name.clone(),
+        read.document,
+        read.integrity,
+    )
+}
+
+/// Operator-facing wording for a progress event.
+#[must_use]
+pub fn describe(progress: &Progress) -> String {
+    match progress {
+        Progress::WaitingForReader => "Esperando un lector PC/SC...".to_owned(),
+        Progress::WaitingForCard { reader } => format!("Esperando un DNIe en «{reader}»..."),
+        Progress::Reading {
+            reader,
+            attempt,
+            attempts,
+        } => format!("Leyendo el DNIe en «{reader}» (intento {attempt} de {attempts})..."),
+        Progress::Delivered { read_id, delivered } => {
+            format!("Lectura {read_id} entregada a {delivered} salida(s).")
+        }
+        Progress::WaitingForRemoval { reader } => {
+            format!("Retire el DNIe de «{reader}» para permitir otra lectura.")
+        }
+        Progress::ReadFailed { attempts, code } => {
+            format!("Lectura fallida tras {attempts} intento(s): {code}.")
+        }
+        Progress::OutputFailed { sink, message } => format!("Salida {sink} fallida: {message}."),
+        Progress::MonitorFailed { message } => {
+            format!("Servicio PC/SC no disponible: {message}. Reintentando...")
+        }
+        Progress::MonitorRecovered => "Servicio PC/SC recuperado.".to_owned(),
+    }
+}
+
+fn print_progress(progress: Progress) -> ControlFlow<()> {
+    eprintln!("{}", describe(&progress));
+    ControlFlow::Continue(())
 }
 
 fn list_readers() -> Result<(), AppError> {
@@ -170,92 +502,46 @@ fn list_readers() -> Result<(), AppError> {
         println!("No se encontraron lectores PC/SC.");
     }
     for reader in readers {
-        println!("{}\t{:?}\t{}", reader.index, reader.presence, reader.name);
+        println!(
+            "{}\t{}\t{}",
+            reader.index,
+            reader.presence.describe(),
+            reader.name
+        );
     }
     Ok(())
 }
 
-fn run_once(options: &RunOptions) -> Result<(), AppError> {
-    let mut monitor = PcscMonitor::new()?;
-    let reader = wait_for_card(&mut monitor, options.reader.as_deref())?;
+fn run_once(options: &OnceOptions) -> Result<(), AppError> {
     let engine = ProcessEngine::from_bundle(ENGINE_TIMEOUT)?;
-    let sinks = build_sinks(&options.outputs)?;
-    let sink_refs = sink_references(&sinks);
-    execute_read_cycle(
+    let sinks = build_sinks(&options.run.outputs)?;
+    let mut monitor = PcscMonitor::new()?;
+    run_session(
+        &mut monitor,
+        options.run.reader.as_deref(),
         &engine,
-        &reader,
-        &sink_refs,
-        options.attempts,
-        Duration::from_millis(options.retry_delay_ms),
-    )?;
-    Ok(())
+        &sink_references(&sinks),
+        &SessionOptions::from_cli(&options.run),
+        SessionMode::Once {
+            timeout: options.timeout_seconds.map(Duration::from_secs),
+        },
+        &mut print_progress,
+    )
 }
 
 fn run_watch(options: &RunOptions) -> Result<(), AppError> {
-    let mut monitor = PcscMonitor::new()?;
-    let readers = monitor.initialise()?;
-    let mut controller = WatchController::new(&readers, options.reader.as_deref())?;
     let engine = ProcessEngine::from_bundle(ENGINE_TIMEOUT)?;
     let sinks = build_sinks(&options.outputs)?;
-    if let Some(reader) = controller.initial_read() {
-        process_watch_read(&reader, &mut controller, &engine, &sinks, options);
-    }
-    loop {
-        let events = monitor.wait_for_events(POLL_DELAY)?;
-        for event in events {
-            if let Some(reader) = controller.handle(event) {
-                process_watch_read(&reader, &mut controller, &engine, &sinks, options);
-            }
-        }
-    }
-}
-
-fn wait_for_card(
-    monitor: &mut dyn ReaderMonitor,
-    pattern: Option<&str>,
-) -> Result<ReaderInfo, AppError> {
-    let readers = monitor.initialise()?;
-    let mut selection = ReaderSelection::new(&readers, pattern)?;
-    if let Some(reader) = selection
-        .selected()
-        .filter(|value| value.presence == ReaderPresence::Present)
-    {
-        return Ok(reader.clone());
-    }
-    loop {
-        for event in monitor.wait_for_events(POLL_DELAY)? {
-            selection.update(&event);
-            if let ReaderEvent::CardInserted(reader) = event
-                && selection.is_selected(&reader)
-            {
-                return Ok(reader);
-            }
-        }
-    }
-}
-
-fn process_watch_read(
-    reader: &ReaderInfo,
-    controller: &mut WatchController,
-    engine: &dyn DniEngine,
-    sinks: &[Box<dyn Sink>],
-    options: &RunOptions,
-) {
-    let sink_refs = sink_references(sinks);
-    let result = execute_read_cycle(
-        engine,
-        reader,
-        &sink_refs,
-        options.attempts,
-        Duration::from_millis(options.retry_delay_ms),
-    );
-    match result {
-        Ok(_) => controller.read_succeeded(),
-        Err(error) => {
-            controller.read_failed();
-            eprintln!("{error}");
-        }
-    }
+    let mut monitor = PcscMonitor::new()?;
+    run_session(
+        &mut monitor,
+        options.reader.as_deref(),
+        &engine,
+        &sink_references(&sinks),
+        &SessionOptions::from_cli(options),
+        SessionMode::Watch,
+        &mut print_progress,
+    )
 }
 
 fn build_sinks(options: &OutputOptions) -> Result<Vec<Box<dyn Sink>>, OutputError> {
@@ -278,7 +564,7 @@ fn build_sinks(options: &OutputOptions) -> Result<Vec<Box<dyn Sink>>, OutputErro
 
 fn add_webhook(sinks: &mut Vec<Box<dyn Sink>>, options: &OutputOptions) -> Result<(), OutputError> {
     if let Some(url) = &options.webhook {
-        let token = std::env::var("SIMPLE_LECTOR_DNI_WEBHOOK_TOKEN").ok();
+        let token = std::env::var(WEBHOOK_TOKEN_VARIABLE).ok();
         sinks.push(Box::new(WebhookSink::new(
             url.clone(),
             token,

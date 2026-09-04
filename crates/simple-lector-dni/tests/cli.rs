@@ -1,9 +1,10 @@
+use std::ops::ControlFlow;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use clap::Parser;
-use simple_lector_dni::app::execute_read_cycle;
+use simple_lector_dni::app::{Progress, execute_read_cycle};
 use simple_lector_dni::cli::{Cli, Command};
 use simple_lector_dni::engine::{DniEngine, EngineFailure, EngineRead};
 use simple_lector_dni::engine_protocol::{DocumentData, IntegrityResult};
@@ -26,19 +27,22 @@ fn parses_once_with_combined_outputs() {
         "history.csv",
         "--webhook",
         "https://example.test/dni",
+        "--timeout-seconds",
+        "30",
     ])
     .unwrap();
 
     let Command::Once(options) = cli.command else {
         panic!("expected once command");
     };
-    assert_eq!(options.reader.as_deref(), Some("EMV"));
-    assert_eq!(options.outputs.json, Some(PathBuf::from("latest.json")));
-    assert_eq!(options.outputs.csv, Some(PathBuf::from("history.csv")));
+    assert_eq!(options.run.reader.as_deref(), Some("EMV"));
+    assert_eq!(options.run.outputs.json, Some(PathBuf::from("latest.json")));
+    assert_eq!(options.run.outputs.csv, Some(PathBuf::from("history.csv")));
     assert_eq!(
-        options.outputs.webhook.as_deref(),
+        options.run.outputs.webhook.as_deref(),
         Some("https://example.test/dni")
     );
+    assert_eq!(options.timeout_seconds, Some(30));
 }
 
 #[test]
@@ -68,11 +72,27 @@ fn read_cycle_retries_then_delivers_once() {
         event_count: 0,
     };
 
-    let record = execute_read_cycle(&engine, &reader, &[&sink], 3, Duration::ZERO).unwrap();
+    let mut attempts_reported = Vec::new();
+    let outcome = execute_read_cycle(
+        &engine,
+        &reader,
+        &[&sink],
+        3,
+        Duration::ZERO,
+        &mut |progress| {
+            if let Progress::Reading { attempt, .. } = progress {
+                attempts_reported.push(attempt);
+            }
+            ControlFlow::Continue(())
+        },
+    )
+    .unwrap();
 
     assert_eq!(engine.attempts.load(Ordering::SeqCst), 3);
     assert_eq!(sink.deliveries.load(Ordering::SeqCst), 1);
-    assert_eq!(record.document.nombre, "ANA");
+    assert_eq!(outcome.record.document.nombre, "ANA");
+    assert_eq!(outcome.delivered, 1);
+    assert_eq!(attempts_reported, vec![1, 2, 3]);
 }
 
 #[derive(Debug, Default)]
@@ -90,10 +110,7 @@ impl DniEngine for SucceedsOnThird {
                 nombre: "ANA".to_owned(),
                 ..DocumentData::default()
             },
-            integrity: IntegrityResult {
-                sod_signature: "verified".to_owned(),
-                dg13_hash: "verified".to_owned(),
-            },
+            integrity: IntegrityResult::VERIFIED,
         })
     }
 }

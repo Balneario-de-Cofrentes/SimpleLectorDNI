@@ -1,4 +1,4 @@
-use simple_lector_dni::app::WatchController;
+use simple_lector_dni::app::{Progress, WatchController};
 use simple_lector_dni::reader::{ReaderEvent, ReaderInfo, ReaderPresence};
 
 fn reader(presence: ReaderPresence) -> ReaderInfo {
@@ -61,5 +61,35 @@ fn reader_can_be_detached_and_reselected_after_reconnection() {
     assert_eq!(
         controller.handle(ReaderEvent::CardInserted(present.clone())),
         Some(present)
+    );
+}
+
+#[test]
+fn status_tells_the_operator_what_to_do_next() {
+    let present = reader(ReaderPresence::Present);
+    let empty = reader(ReaderPresence::Empty);
+    let name = present.name.clone();
+    let mut controller = WatchController::new(&[], None).unwrap();
+
+    assert_eq!(controller.status(), Progress::WaitingForReader);
+    let _ = controller.handle(ReaderEvent::ReaderAttached(empty.clone()));
+    assert_eq!(
+        controller.status(),
+        Progress::WaitingForCard {
+            reader: name.clone()
+        }
+    );
+    let _ = controller.handle(ReaderEvent::CardInserted(present));
+    controller.read_succeeded();
+    assert_eq!(
+        controller.status(),
+        Progress::WaitingForRemoval {
+            reader: name.clone()
+        }
+    );
+    let _ = controller.handle(ReaderEvent::CardRemoved(empty));
+    assert_eq!(
+        controller.status(),
+        Progress::WaitingForCard { reader: name }
     );
 }

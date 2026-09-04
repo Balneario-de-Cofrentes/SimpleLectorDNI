@@ -26,10 +26,7 @@ fn record(name: &str) -> ReadRecord {
             direccion: "=CMD(\"synthetic\")".to_owned(),
             ..DocumentData::default()
         },
-        IntegrityResult {
-            sod_signature: "verified".to_owned(),
-            dg13_hash: "verified".to_owned(),
-        },
+        IntegrityResult::VERIFIED,
     )
 }
 
@@ -86,21 +83,55 @@ fn csv_creates_one_header_and_appends_protected_rows() {
     assert_eq!(rows[0].get(address_index), Some("'=CMD(\"synthetic\")"));
 }
 
+fn file_sinks(directory: &std::path::Path) -> Vec<(Box<dyn Sink>, std::path::PathBuf)> {
+    let json = directory.join("latest.json");
+    let jsonl = directory.join("history.jsonl");
+    let csv = directory.join("history.csv");
+    vec![
+        (Box::new(JsonFileSink::new(json.clone())), json),
+        (Box::new(JsonLinesSink::new(jsonl.clone())), jsonl),
+        (Box::new(CsvSink::new(csv.clone())), csv),
+    ]
+}
+
 #[cfg(unix)]
 #[test]
-fn identity_files_are_private_on_unix() {
+fn every_identity_file_is_private_on_unix() {
     use std::os::unix::fs::PermissionsExt;
 
     let directory = tempdir().unwrap();
-    let path = directory.path().join("history.jsonl");
-    JsonLinesSink::new(path.clone())
-        .deliver(&record("PRIVATE"))
-        .unwrap();
+    for (sink, path) in file_sinks(directory.path()) {
+        sink.deliver(&record("PRIVATE")).unwrap();
+        sink.deliver(&record("PRIVATE")).unwrap();
 
-    assert_eq!(
-        fs::metadata(path).unwrap().permissions().mode() & 0o777,
-        0o600
-    );
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600,
+            "{}",
+            sink.name()
+        );
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn every_identity_file_is_private_on_windows() {
+    let directory = tempdir().unwrap();
+    let user = std::env::var("USERNAME").unwrap();
+    for (sink, path) in file_sinks(directory.path()) {
+        sink.deliver(&record("PRIVATE")).unwrap();
+        sink.deliver(&record("PRIVATE")).unwrap();
+
+        let output = std::process::Command::new("icacls")
+            .arg(&path)
+            .output()
+            .unwrap();
+        let acl = String::from_utf8_lossy(&output.stdout);
+        assert!(acl.contains(&user), "{}: {acl}", sink.name());
+        for inherited in ["BUILTIN\\Users", "Everyone", "Authenticated Users"] {
+            assert!(!acl.contains(inherited), "{}: {acl}", sink.name());
+        }
+    }
 }
 
 #[test]
@@ -133,6 +164,41 @@ fn webhook_sends_json_auth_and_idempotency_to_loopback() {
     let body = request.split("\r\n\r\n").nth(1).unwrap();
     let json: serde_json::Value = serde_json::from_str(body).unwrap();
     assert_eq!(json["document"]["nombre"], "WEBHOOK");
+}
+
+#[test]
+fn webhook_retries_server_errors_with_the_same_idempotency_key() {
+    let (url, requests) = capture_requests(vec![503, 204]);
+    let sink = WebhookSink::new(url, None, Duration::from_secs(2))
+        .unwrap()
+        .with_retry_delay(Duration::ZERO);
+
+    sink.deliver(&record("RETRY")).unwrap();
+
+    let first = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    let second = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+    let key = |request: &str| {
+        request
+            .lines()
+            .find(|line| line.to_ascii_lowercase().starts_with("idempotency-key: "))
+            .map(str::to_owned)
+    };
+    assert_eq!(key(&first), key(&second));
+    assert!(key(&first).is_some());
+}
+
+#[test]
+fn webhook_does_not_retry_client_errors() {
+    let (url, requests) = capture_requests(vec![401, 204]);
+    let sink = WebhookSink::new(url, None, Duration::from_secs(2))
+        .unwrap()
+        .with_retry_delay(Duration::ZERO);
+
+    let error = sink.deliver(&record("REJECTED")).unwrap_err();
+
+    assert!(error.to_string().contains("401"), "{error}");
+    assert!(requests.recv_timeout(Duration::from_millis(500)).is_ok());
+    assert!(requests.recv_timeout(Duration::from_millis(500)).is_err());
 }
 
 #[test]
@@ -204,19 +270,32 @@ impl Sink for CountsDeliveries<'_> {
 }
 
 fn capture_one_request() -> (String, mpsc::Receiver<String>) {
+    capture_requests(vec![204])
+}
+
+/// Answers one request per status, in order, and hands each raw request back.
+fn capture_requests(statuses: Vec<u16>) -> (String, mpsc::Receiver<String>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
     let (sender, receiver) = mpsc::channel();
     thread::spawn(move || {
-        let (mut stream, _) = listener.accept().unwrap();
-        stream
-            .set_read_timeout(Some(Duration::from_secs(2)))
+        for status in statuses {
+            let Ok((mut stream, _)) = listener.accept() else {
+                return;
+            };
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let request = read_http_request(&mut stream);
+            write!(
+                stream,
+                "HTTP/1.1 {status} Status\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            )
             .unwrap();
-        let request = read_http_request(&mut stream);
-        stream
-            .write_all(b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
-            .unwrap();
-        sender.send(request).unwrap();
+            if sender.send(request).is_err() {
+                return;
+            }
+        }
     });
     (format!("http://{address}/hook"), receiver)
 }

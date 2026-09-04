@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use super::{OutputError, Sink, open_private_append};
 use crate::model::ReadRecord;
 
-const HEADERS: [&str; 28] = [
+/// Published CSV column order. Changing it is a schema change.
+pub const CSV_HEADERS: [&str; 28] = [
     "schema_version",
     "read_id",
     "read_at",
@@ -61,7 +62,7 @@ impl Sink for CsvSink {
             .has_headers(false)
             .from_writer(file);
         if needs_header {
-            writer.write_record(HEADERS)?;
+            writer.write_record(CSV_HEADERS)?;
         }
         writer.write_record(csv_row(record))?;
         writer.flush()?;
