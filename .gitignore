@@ -4,6 +4,7 @@
 # Rust and Java build products.
 target/
 **/target/
+/dist/
 *.class
 
 # Local prototypes kept outside the public project.

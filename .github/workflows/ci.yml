@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-package:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS Apple Silicon
+            os: macos-26
+            package: sh
+          - name: macOS Intel
+            os: macos-15-intel
+            package: sh
+          - name: Windows x64
+            os: windows-2025
+            package: powershell
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Rust format
+        run: cargo fmt --all -- --check
+
+      - name: Rust lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Rust tests
+        run: cargo test --workspace --locked
+
+      - name: Prevent biometric access
+        if: runner.os != 'Windows'
+        run: scripts/check-no-biometric-access.sh
+
+      - name: Prevent biometric access on Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: scripts/check-no-biometric-access.sh
+
+      - name: Package macOS
+        if: matrix.package == 'sh'
+        env:
+          MVN: mvn
+        run: scripts/package-release.sh
+
+      - name: Package Windows
+        if: matrix.package == 'powershell'
+        shell: pwsh
+        run: scripts/package-release.ps1
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.name }}
+          path: dist/*.zip
+          if-no-files-found: error
