@@ -5,7 +5,7 @@ java_binary=${1:?"usage: verify-worker-package.sh <java> <worker-jar>"}
 worker_jar=${2:?"usage: verify-worker-package.sh <java> <worker-jar>"}
 
 response=$(
-  printf '%s\n' '{"protocol":99,"command":"read","reader_index":0}' |
+  printf '%s\n' '{"protocol":99,"command":"read","reader_name":"Synthetic reader"}' |
     "$java_binary" -jar "$worker_jar"
 )
 

@@ -8,6 +8,8 @@ Lector de DNIe por línea de comandos para Windows y macOS. Extrae los datos tex
 
 Descarga y descomprime el paquete de tu sistema desde [Releases](https://github.com/balneariodecofrentes/SimpleLectorDNI/releases). El paquete ya incluye el runtime mínimo de Java y el motor JMultiCard, así que no hace falta instalar Java.
 
+La beta aún no está firmada ni notarizada. Verifica `SHA256SUMS` antes de ejecutarla. macOS o Windows pueden pedir una confirmación adicional del sistema; si la política de tu organización no permite binarios sin firma, compila desde el código fuente hasta que existan certificados de publicación.
+
 En macOS:
 
 ```sh
@@ -36,7 +38,7 @@ Se pueden combinar varias salidas en una misma ejecución:
 
 ```sh
 ./simple-lector-dni watch \
-  --json ultimo.json \
+  --json ultimo.dni.json \
   --jsonl historial.jsonl \
   --csv historial.csv \
   --webhook https://pms.example.com/check-in/dni
@@ -101,4 +103,4 @@ Consulta [CONTRIBUTING.md](CONTRIBUTING.md), la [compatibilidad](docs/COMPATIBIL
 
 ## Licencia
 
-SimpleLectorDNI se publica bajo EUPL-1.2. JMultiCard y el resto de dependencias conservan sus licencias y avisos, detallados en [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) y [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+SimpleLectorDNI se publica bajo EUPL-1.2. JMultiCard y el resto de dependencias conservan sus licencias y avisos, detallados en [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) y el [expediente completo generado](THIRD_PARTY_LICENSES.html).

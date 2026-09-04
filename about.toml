@@ -1,0 +1,22 @@
+accepted = [
+  "Apache-2.0",
+  "BSD-3-Clause",
+  "BSL-1.0",
+  "CDLA-Permissive-2.0",
+  "EUPL-1.2",
+  "ISC",
+  "LGPL-2.1-or-later",
+  "MIT",
+  "Unicode-3.0",
+  "Unlicense",
+  "Zlib",
+]
+targets = [
+  "aarch64-apple-darwin",
+  "x86_64-apple-darwin",
+  "x86_64-pc-windows-msvc",
+]
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
+ignore-transitive-dependencies = false
+workarounds = ["chrono", "ring", "rustls", "rustix"]

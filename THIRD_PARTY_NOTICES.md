@@ -8,7 +8,7 @@ Copyright (C) Dirección General de Modernización Administrativa, Procedimiento
 
 Source: <https://github.com/ctt-gob-es/jmulticard>
 
-Pinned version: 2.1
+Pinned version: 2.1, commit `4ec9494f181a2e94d4aeaf62b63a30bcd98f4624`
 
 JMultiCard source headers declare dual licensing under LGPL 2.1 or later, or EUPL 1.1 or later. SimpleLectorDNI elects the EUPL licensing option. The upstream Maven metadata currently lists GPL-2.0 and EUPL-1.1. Consult the pinned upstream sources for the notices applicable to each redistributed file.
 
@@ -34,10 +34,10 @@ The shaded worker JAR preserves Jackson's `META-INF/LICENSE` and `META-INF/NOTIC
 
 ## Runtime de Java
 
-Los paquetes redistribuyen una imagen modular generada con `jlink` a partir de Eclipse Temurin 21. Temurin se distribuye bajo GPL-2.0 con Classpath Exception y conserva sus ficheros legales dentro del directorio `runtime/legal`.
+Los paquetes redistribuyen una imagen modular generada con `jlink` a partir de Eclipse Temurin 21. Temurin se distribuye bajo GPL-2.0 con Classpath Exception y conserva sus ficheros legales dentro del directorio `runtime/legal`. `RUNTIME_SOURCE.md` explica cómo identificar y obtener el código fuente correspondiente a la versión exacta declarada en `runtime/release`.
 
 Fuente: <https://adoptium.net/temurin/>
 
 ## Dependencias Rust
 
-Los nombres, versiones, expresiones de licencia y orígenes resueltos desde `Cargo.lock` se incluyen en `THIRD_PARTY_LICENSES.md` dentro del repositorio y de cada paquete.
+Los nombres, versiones, expresiones de licencia y orígenes resueltos desde `Cargo.lock` se incluyen en `THIRD_PARTY_LICENSES.md`. Los avisos y textos completos detectados por `cargo-about` se incluyen en `THIRD_PARTY_LICENSES.html`. Ambos ficheros forman parte del repositorio y de cada paquete.

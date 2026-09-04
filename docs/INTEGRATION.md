@@ -22,9 +22,9 @@ Cada lectura produce un objeto con identificador idempotente, instante con zona 
     "apellidos": "EJEMPLO PRUEBA",
     "dni": "00000000T",
     "dni_formateado": "00000000-T",
-    "fecha_nacimiento": "01 01 1990",
+    "fecha_nacimiento": "1990-01-01",
     "nacionalidad": "ESP",
-    "fecha_caducidad": "01 01 2030",
+    "fecha_caducidad": "2030-01-01",
     "numero_soporte": "SOPORTE-DEMO",
     "sexo": "X",
     "ciudad_nacimiento": "CIUDAD",
@@ -46,7 +46,7 @@ Los consumidores deben ignorar campos desconocidos para permitir ampliaciones co
 ## JSON, JSON Lines y CSV
 
 ```sh
-simple-lector-dni once --json ultimo.json
+simple-lector-dni once --json ultimo.dni.json
 simple-lector-dni watch --jsonl historial.jsonl
 simple-lector-dni watch --csv historial.csv
 ```
@@ -73,7 +73,7 @@ La petición usa `POST` con JSON e incluye:
 - `User-Agent: SimpleLectorDNI/<version>`
 - `Authorization: Bearer <token>`, solo si existe `SIMPLE_LECTOR_DNI_WEBHOOK_TOKEN`
 
-Solo se aceptan URLs HTTPS. HTTP se permite exclusivamente para `localhost` o una dirección loopback durante desarrollo. El timeout predeterminado es de 10 segundos y se cambia con `--webhook-timeout-seconds`.
+Solo se aceptan URLs HTTPS. HTTP se permite exclusivamente para `localhost` o una dirección loopback durante desarrollo. No se siguen redirecciones. El timeout predeterminado es de 10 segundos y se cambia con `--webhook-timeout-seconds`.
 
 Cada salida está aislada. Si una falla, el programa intenta las restantes y devuelve error para que supervisión pueda detectarlo. El receptor debe deduplicar usando `Idempotency-Key`.
 

@@ -65,6 +65,7 @@ fn read_cycle_retries_then_delivers_once() {
         index: 0,
         name: "Synthetic reader".to_owned(),
         presence: ReaderPresence::Present,
+        event_count: 0,
     };
 
     let record = execute_read_cycle(&engine, &reader, &[&sink], 3, Duration::ZERO).unwrap();

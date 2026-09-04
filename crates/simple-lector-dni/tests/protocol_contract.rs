@@ -1,4 +1,13 @@
-use simple_lector_dni::engine_protocol::{DocumentData, EngineResponse};
+use simple_lector_dni::engine_protocol::{DocumentData, EngineRequest, EngineResponse};
+
+#[test]
+fn read_request_identifies_the_reader_by_stable_name() {
+    let request = EngineRequest::read("Synthetic reader");
+    let value = serde_json::to_value(request).expect("request serializes");
+
+    assert_eq!(value["reader_name"], "Synthetic reader");
+    assert!(value.get("reader_index").is_none());
+}
 
 #[test]
 fn protocol_contract() {

@@ -17,6 +17,7 @@ pub struct ReaderInfo {
     pub index: usize,
     pub name: String,
     pub presence: ReaderPresence,
+    pub event_count: u32,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -97,6 +98,7 @@ fn to_reader_info(states: &[ReaderState]) -> Vec<ReaderInfo> {
             index,
             name: state.name().to_string_lossy().into_owned(),
             presence: classify_state(state.event_state()),
+            event_count: state.event_count(),
         })
         .collect()
 }
@@ -174,14 +176,13 @@ fn push_attached(events: &mut Vec<ReaderEvent>, reader: &ReaderInfo) {
 }
 
 fn push_presence_change(events: &mut Vec<ReaderEvent>, old: &ReaderInfo, new: &ReaderInfo) {
-    match (old.presence, new.presence) {
-        (ReaderPresence::Present, ReaderPresence::Empty) => {
-            events.push(ReaderEvent::CardRemoved(new.clone()));
-        }
-        (ReaderPresence::Empty, ReaderPresence::Present) => {
-            events.push(ReaderEvent::CardInserted(new.clone()));
-        }
-        _ => {}
+    if old.presence == ReaderPresence::Present && new.presence != ReaderPresence::Present {
+        events.push(ReaderEvent::CardRemoved(new.clone()));
+    } else if old.presence != ReaderPresence::Present && new.presence == ReaderPresence::Present {
+        events.push(ReaderEvent::CardInserted(new.clone()));
+    } else if old.presence == ReaderPresence::Present && old.event_count != new.event_count {
+        events.push(ReaderEvent::CardRemoved(new.clone()));
+        events.push(ReaderEvent::CardInserted(new.clone()));
     }
 }
 

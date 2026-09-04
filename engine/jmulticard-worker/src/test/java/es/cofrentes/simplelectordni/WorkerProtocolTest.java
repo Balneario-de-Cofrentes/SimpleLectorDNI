@@ -17,13 +17,16 @@ final class WorkerProtocolTest {
         final DocumentData document = new DocumentData();
         document.nombre = "ANA";
         document.dni = "00000000T";
-        final DniReader reader = index -> new DniReadResult(
-            document,
-            new IntegrityResult("verified", "verified")
-        );
+        final DniReader reader = readerName -> {
+            assertEquals("Synthetic reader", readerName);
+            return new DniReadResult(
+                document,
+                new IntegrityResult("verified", "verified")
+            );
+        };
 
         final String response = Worker.handle(
-            "{\"protocol\":1,\"command\":\"read\",\"reader_index\":2}",
+            "{\"protocol\":1,\"command\":\"read\",\"reader_name\":\"Synthetic reader\"}",
             reader
         );
         final JsonNode json = JSON.readTree(response);
@@ -38,8 +41,8 @@ final class WorkerProtocolTest {
     @Test
     void rejectsAnUnsupportedProtocolWithoutCallingTheReader() throws Exception {
         final String response = Worker.handle(
-            "{\"protocol\":99,\"command\":\"read\",\"reader_index\":0}",
-            index -> { throw new AssertionError("reader must not be called"); }
+            "{\"protocol\":99,\"command\":\"read\",\"reader_name\":\"Synthetic reader\"}",
+            readerName -> { throw new AssertionError("reader must not be called"); }
         );
 
         final JsonNode json = JSON.readTree(response);
@@ -51,13 +54,49 @@ final class WorkerProtocolTest {
     @Test
     void unexpectedErrorsNeverLeakIdentityData() throws Exception {
         final String response = Worker.handle(
-            "{\"protocol\":1,\"command\":\"read\",\"reader_index\":0}",
-            index -> { throw new IllegalStateException("sensitive DNI 00000000T"); }
+            "{\"protocol\":1,\"command\":\"read\",\"reader_name\":\"Synthetic reader\"}",
+            readerName -> { throw new IllegalStateException("sensitive DNI 00000000T"); }
         );
 
         assertFalse(response.contains("00000000T"));
         final JsonNode json = JSON.readTree(response);
         assertEquals("INTERNAL_ERROR", json.path("error").path("code").asText());
         assertTrue(json.path("error").path("retryable").asBoolean());
+    }
+
+    @Test
+    void expectedReadErrorsNeverLeakTheirOriginalMessage() throws Exception {
+        final String response = Worker.handle(
+            "{\"protocol\":1,\"command\":\"read\",\"reader_name\":\"Synthetic reader\"}",
+            readerName -> {
+                throw new DniReadException(
+                    "CARD_READ_FAILED",
+                    "sensitive DNI 00000000T",
+                    true,
+                    null
+                );
+            }
+        );
+
+        assertFalse(response.contains("00000000T"));
+        final JsonNode json = JSON.readTree(response);
+        assertEquals("CARD_READ_FAILED", json.path("error").path("code").asText());
+        assertEquals("DNIe read failed", json.path("error").path("message").asText());
+    }
+
+    @Test
+    void invalidErrorCodesAreSanitizedBeforeSerialization() throws Exception {
+        final String response = Worker.handle(
+            "{\"protocol\":1,\"command\":\"read\",\"reader_name\":\"Synthetic reader\"}",
+            readerName -> {
+                throw new DniReadException("DNI_00000000T", "failure", true, null);
+            }
+        );
+
+        assertFalse(response.contains("00000000T"));
+        assertEquals(
+            "INTERNAL_ERROR",
+            JSON.readTree(response).path("error").path("code").asText()
+        );
     }
 }

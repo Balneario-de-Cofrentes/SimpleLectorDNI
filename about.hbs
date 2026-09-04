@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Licencias Rust de terceros, SimpleLectorDNI</title>
+  <style>
+    body { font-family: sans-serif; line-height: 1.4; margin: 2rem auto; max-width: 70rem; padding: 0 1rem; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { border: 1px solid #bbb; padding: .4rem; text-align: left; }
+    pre { border: 1px solid #bbb; max-height: 24rem; overflow: auto; padding: 1rem; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Licencias Rust de terceros</h1>
+  <p>Generado desde Cargo.lock mediante cargo-about. Este expediente acompaña a los binarios redistribuidos.</p>
+  <table>
+    <thead><tr><th>Componente</th><th>Versión</th><th>Licencia</th></tr></thead>
+    <tbody>
+    {{#each crates}}
+      <tr>
+        <td><a href="{{#if package.repository}}{{package.repository}}{{else}}https://crates.io/crates/{{package.name}}{{/if}}">{{package.name}}</a></td>
+        <td>{{package.version}}</td>
+        <td>{{license}}</td>
+      </tr>
+    {{/each}}
+    </tbody>
+  </table>
+  <h2>Textos de licencia</h2>
+  {{#each overview}}
+    <h3 id="{{id}}">{{name}}</h3>
+    <pre>{{text}}</pre>
+  {{/each}}
+</body>
+</html>

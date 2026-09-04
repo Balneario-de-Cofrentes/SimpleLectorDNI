@@ -136,6 +136,33 @@ fn webhook_sends_json_auth_and_idempotency_to_loopback() {
 }
 
 #[test]
+fn webhook_never_redirects_identity_data() {
+    let redirected_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    redirected_listener.set_nonblocking(true).unwrap();
+    let redirected_address = redirected_listener.local_addr().unwrap();
+    let redirect_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let redirect_address = redirect_listener.local_addr().unwrap();
+    thread::spawn(move || {
+        let (mut stream, _) = redirect_listener.accept().unwrap();
+        let _ = read_http_request(&mut stream);
+        write!(
+            stream,
+            "HTTP/1.1 307 Temporary Redirect\r\nLocation: http://{redirected_address}/capture\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        )
+        .unwrap();
+    });
+    let sink = WebhookSink::new(
+        format!("http://{redirect_address}/hook"),
+        None,
+        Duration::from_millis(250),
+    )
+    .unwrap();
+
+    assert!(sink.deliver(&record("DO NOT REDIRECT")).is_err());
+    assert!(redirected_listener.accept().is_err());
+}
+
+#[test]
 fn sink_failures_do_not_stop_other_sinks() {
     let delivered = AtomicUsize::new(0);
     let counter = CountsDeliveries(&delivered);

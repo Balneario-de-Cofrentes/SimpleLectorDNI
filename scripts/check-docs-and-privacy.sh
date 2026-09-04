@@ -3,10 +3,12 @@ set -eu
 
 for path in \
   README.md \
+  RUNTIME_SOURCE.md \
   CHANGELOG.md \
   CONTRIBUTING.md \
   SECURITY.md \
   THIRD_PARTY_LICENSES.md \
+  THIRD_PARTY_LICENSES.html \
   docs/INTEGRATION.md \
   docs/RESEARCH.md \
   docs/PRIVACY.md \
@@ -15,6 +17,8 @@ for path in \
 do
   test -s "$path"
 done
+
+rg -q 'Licencias Rust de terceros' THIRD_PARTY_LICENSES.html
 
 rg -q 'simple-lector-dni once' README.md
 rg -q 'simple-lector-dni watch' README.md

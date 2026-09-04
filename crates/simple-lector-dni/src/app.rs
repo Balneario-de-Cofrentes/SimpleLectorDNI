@@ -236,13 +236,12 @@ fn wait_for_card(
     loop {
         for event in monitor.wait_for_events(POLL_DELAY)? {
             update_selection(&event, &mut selected, pattern);
-            if let ReaderEvent::CardInserted(reader) = event {
-                if selected
+            if let ReaderEvent::CardInserted(reader) = event
+                && selected
                     .as_ref()
                     .is_some_and(|value| value.name == reader.name)
-                {
-                    return Ok(reader);
-                }
+            {
+                return Ok(reader);
             }
         }
     }

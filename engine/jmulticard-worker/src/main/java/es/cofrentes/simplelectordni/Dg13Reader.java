@@ -1,9 +1,7 @@
 package es.cofrentes.simplelectordni;
 
 import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.Date;
 
 import es.gob.jmulticard.DigestAlgorithm;
 import es.gob.jmulticard.HexUtils;
@@ -22,10 +20,10 @@ import es.gob.jmulticard.jse.smartcardio.SmartcardIoConnection;
 final class Dg13Reader implements DniReader {
 
     @Override
-    public DniReadResult read(final int readerIndex) throws DniReadException {
+    public DniReadResult read(final String readerName) throws DniReadException {
         final SmartcardIoConnection connection = new SmartcardIoConnection();
         try {
-            return readConnected(connection, readerIndex);
+            return readConnected(connection, readerName);
         }
         catch (final DniReadException e) {
             throw e;
@@ -40,9 +38,10 @@ final class Dg13Reader implements DniReader {
 
     private static DniReadResult readConnected(
         final SmartcardIoConnection connection,
-        final int readerIndex
+        final String readerName
     ) throws Exception {
         connection.setProtocol(ApduConnectionProtocol.T0);
+        final int readerIndex = findReader(connection, readerName);
         connection.setTerminal(readerIndex);
         final BcCryptoHelper crypto = new BcCryptoHelper();
         final Dnie card = DnieFactory.getDnie(connection, null, crypto, null, false);
@@ -55,6 +54,24 @@ final class Dg13Reader implements DniReader {
             );
         }
         return readDg13(dnie, crypto);
+    }
+
+    private static int findReader(
+        final SmartcardIoConnection connection,
+        final String readerName
+    ) throws Exception {
+        for (final long terminal : connection.getTerminals(false)) {
+            final int index = Math.toIntExact(terminal);
+            if (readerName.equals(connection.getTerminalInfo(index))) {
+                return index;
+            }
+        }
+        throw new DniReadException(
+            "READER_NOT_FOUND",
+            "configured reader is unavailable",
+            true,
+            null
+        );
     }
 
     private static DniReadResult readDg13(
@@ -71,7 +88,8 @@ final class Dg13Reader implements DniReader {
     private static DocumentData mapDocument(
         final Dnie3 dnie,
         final OptionalDetails details
-    ) throws Exception {
+    ) {
+        final Dg13TextFields raw = Dg13TextFields.from(details.getBytes());
         final DocumentData value = new DocumentData();
         value.nombre = clean(details.getName());
         value.primer_apellido = clean(details.getFirstSurname());
@@ -79,12 +97,12 @@ final class Dg13Reader implements DniReader {
         value.apellidos = join(value.primer_apellido, value.segundo_apellido);
         value.dni_formateado = clean(details.getIdNumber());
         value.dni = normalizeDocumentNumber(value.dni_formateado);
-        value.fecha_nacimiento = formatDate(details.getBirthDate());
+        value.fecha_nacimiento = raw.isoDateAt(5);
         value.nacionalidad = clean(details.getNationality());
-        value.fecha_caducidad = formatDate(details.getExpirationDate());
+        value.fecha_caducidad = raw.isoDateAt(7);
         mapAdditionalDetails(value, details);
-        value.version_dnie = readDnieVersion(dnie);
-        value.serial_chip = HexUtils.hexify(dnie.getSerialNumber(), false);
+        value.version_dnie = optionalText(() -> readDnieVersion(dnie));
+        value.serial_chip = optionalText(() -> HexUtils.hexify(dnie.getSerialNumber(), false));
         return value;
     }
 
@@ -156,16 +174,26 @@ final class Dg13Reader implements DniReader {
         return clean(value).replaceAll("[^A-Za-z0-9]", "");
     }
 
-    private static String formatDate(final Date value) {
-        return value == null ? "" : new SimpleDateFormat("yyyy-MM-dd").format(value);
-    }
-
     private static String join(final String first, final String second) {
         return clean(first + " " + second).replaceAll("\\s+", " ");
     }
 
     private static String clean(final String value) {
         return value == null ? "" : value.trim();
+    }
+
+    static String optionalText(final TextSupplier source) {
+        try {
+            return clean(source.get());
+        }
+        catch (final Exception e) {
+            return "";
+        }
+    }
+
+    @FunctionalInterface
+    interface TextSupplier {
+        String get() throws Exception;
     }
 
     private static void closeQuietly(final SmartcardIoConnection connection) {

@@ -27,14 +27,14 @@ public final class Worker {
     static String handle(final String line, final DniReader reader) {
         try {
             final EngineRequest request = parseRequest(line);
-            final DniReadResult result = reader.read(request.reader_index());
+            final DniReadResult result = reader.read(request.reader_name());
             return serialize(new SuccessResponse(PROTOCOL_VERSION, "ok", result.document(), result.integrity()));
         }
         catch (final InvalidRequestException e) {
             return failure("INVALID_REQUEST", "invalid engine request", false);
         }
         catch (final DniReadException e) {
-            return failure(e.code(), e.getMessage(), e.retryable());
+            return failure(e.code(), publicMessage(e.code()), e.retryable());
         }
         catch (final Exception e) {
             return failure("INTERNAL_ERROR", "unexpected engine error", true);
@@ -47,7 +47,11 @@ public final class Worker {
             if (request.protocol() != PROTOCOL_VERSION || !"read".equals(request.command())) {
                 throw new InvalidRequestException();
             }
-            if (request.reader_index() < 0) {
+            if (
+                request.reader_name() == null ||
+                request.reader_name().isBlank() ||
+                request.reader_name().length() > 512
+            ) {
                 throw new InvalidRequestException();
             }
             return request;
@@ -62,9 +66,25 @@ public final class Worker {
             new FailureResponse(
                 PROTOCOL_VERSION,
                 "error",
-                new SafeError(code, message, retryable)
+                new SafeError(safeCode(code), message, retryable)
             )
         );
+    }
+
+    private static String safeCode(final String code) {
+        if (code != null && code.matches("[A-Z_]{1,64}")) {
+            return code;
+        }
+        return "INTERNAL_ERROR";
+    }
+
+    private static String publicMessage(final String code) {
+        return switch (code) {
+            case "UNSUPPORTED_CARD" -> "unsupported smart card";
+            case "READER_NOT_FOUND" -> "configured reader is unavailable";
+            case "INTEGRITY_ERROR" -> "DNIe integrity verification failed";
+            default -> "DNIe read failed";
+        };
     }
 
     private static String serialize(final Object value) {
@@ -86,7 +106,7 @@ public final class Worker {
         }
     }
 
-    private record EngineRequest(int protocol, String command, int reader_index) {}
+    private record EngineRequest(int protocol, String command, String reader_name) {}
 
     private record SuccessResponse(
         int protocol,

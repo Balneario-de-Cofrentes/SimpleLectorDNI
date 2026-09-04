@@ -8,6 +8,7 @@ fn reader(index: usize, name: &str, presence: ReaderPresence) -> ReaderInfo {
         index,
         name: name.to_owned(),
         presence,
+        event_count: 0,
     }
 }
 
@@ -83,5 +84,46 @@ fn snapshot_diff_maps_reader_and_card_lifecycle_events() {
     assert_eq!(
         diff_snapshots(std::slice::from_ref(&empty), &[]),
         vec![ReaderEvent::ReaderDetached(empty)]
+    );
+}
+
+#[test]
+fn unavailable_transitions_preserve_the_card_lifecycle() {
+    let empty = reader(0, "Reader", ReaderPresence::Empty);
+    let present = reader(0, "Reader", ReaderPresence::Present);
+    let unavailable = reader(0, "Reader", ReaderPresence::Unavailable);
+
+    assert_eq!(
+        diff_snapshots(
+            std::slice::from_ref(&present),
+            std::slice::from_ref(&unavailable)
+        ),
+        vec![ReaderEvent::CardRemoved(unavailable.clone())]
+    );
+    assert_eq!(
+        diff_snapshots(
+            std::slice::from_ref(&unavailable),
+            std::slice::from_ref(&present)
+        ),
+        vec![ReaderEvent::CardInserted(present.clone())]
+    );
+    assert!(diff_snapshots(&[unavailable], &[empty]).is_empty());
+}
+
+#[test]
+fn event_count_detects_a_removal_and_insertion_during_a_blocking_read() {
+    let present = reader(0, "Reader", ReaderPresence::Present);
+    let mut replaced = present.clone();
+    replaced.event_count = 2;
+
+    assert_eq!(
+        diff_snapshots(
+            std::slice::from_ref(&present),
+            std::slice::from_ref(&replaced)
+        ),
+        vec![
+            ReaderEvent::CardRemoved(replaced.clone()),
+            ReaderEvent::CardInserted(replaced)
+        ]
     );
 }

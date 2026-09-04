@@ -159,4 +159,4 @@ Este inventario corresponde a las dependencias Rust resueltas en `Cargo.lock` pa
 | zerovec-derive | 0.11.6 | Unicode-3.0 | https://github.com/unicode-org/icu4x |
 | zmij | 1.0.23 | MIT | https://github.com/dtolnay/zmij |
 
-JMultiCard y el runtime de Java se documentan por separado en [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Los textos y avisos detectados se incluyen en [THIRD_PARTY_LICENSES.html](THIRD_PARTY_LICENSES.html). JMultiCard y el runtime de Java se documentan por separado en [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

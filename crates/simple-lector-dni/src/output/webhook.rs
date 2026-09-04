@@ -18,6 +18,7 @@ impl WebhookSink {
         validate_webhook_url(&url)?;
         let config = ureq::Agent::config_builder()
             .timeout_global(Some(timeout))
+            .max_redirects(0)
             .build();
         Ok(Self {
             url,
@@ -55,10 +56,17 @@ impl Sink for WebhookSink {
             Some(token) => request.header("Authorization", format!("Bearer {token}")),
             None => request,
         };
-        request
+        let response = request
             .send_json(record)
             .map_err(|error| OutputError::Delivery(format!("webhook request failed: {error}")))?;
-        Ok(())
+        if response.status().is_success() {
+            Ok(())
+        } else {
+            Err(OutputError::Delivery(format!(
+                "webhook returned HTTP {}",
+                response.status().as_u16()
+            )))
+        }
     }
 }
 

@@ -101,7 +101,7 @@ impl ProcessEngine {
 
 impl DniEngine for ProcessEngine {
     fn read(&self, reader: &ReaderInfo) -> Result<EngineRead, EngineFailure> {
-        let response = self.execute(&EngineRequest::read(reader.index))?;
+        let response = self.execute(&EngineRequest::read(&reader.name))?;
         parse_response(&response)
     }
 }

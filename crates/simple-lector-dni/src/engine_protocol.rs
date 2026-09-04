@@ -58,16 +58,16 @@ pub enum EngineResponse {
 pub struct EngineRequest {
     pub protocol: u8,
     pub command: String,
-    pub reader_index: usize,
+    pub reader_name: String,
 }
 
 impl EngineRequest {
     #[must_use]
-    pub fn read(reader_index: usize) -> Self {
+    pub fn read(reader_name: impl Into<String>) -> Self {
         Self {
             protocol: ENGINE_PROTOCOL_VERSION,
             command: "read".to_owned(),
-            reader_index,
+            reader_name: reader_name.into(),
         }
     }
 }

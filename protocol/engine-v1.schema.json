@@ -11,11 +11,11 @@
     "request": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["protocol", "command", "reader_index"],
+      "required": ["protocol", "command", "reader_name"],
       "properties": {
         "protocol": { "const": 1 },
         "command": { "const": "read" },
-        "reader_index": { "type": "integer", "minimum": 0 }
+        "reader_name": { "type": "string", "minLength": 1, "maxLength": 512 }
       }
     },
     "document": {

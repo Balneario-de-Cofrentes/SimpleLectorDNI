@@ -8,13 +8,16 @@ fn reader() -> ReaderInfo {
         index: 2,
         name: "Synthetic reader".to_owned(),
         presence: ReaderPresence::Present,
+        event_count: 0,
     }
 }
 
 #[test]
 fn process_engine_parses_a_successful_response() {
-    let engine = shell_engine(
-        "printf '%s' '{\"protocol\":1,\"status\":\"ok\",\"document\":{\"nombre\":\"ANA\",\"primer_apellido\":\"\",\"segundo_apellido\":\"\",\"apellidos\":\"\",\"dni\":\"00000000T\",\"dni_formateado\":\"\",\"fecha_nacimiento\":\"\",\"nacionalidad\":\"\",\"fecha_caducidad\":\"\",\"numero_soporte\":\"\",\"sexo\":\"\",\"ciudad_nacimiento\":\"\",\"provincia_nacimiento\":\"\",\"pais_nacimiento\":\"\",\"nombres_progenitores\":\"\",\"direccion\":\"\",\"localidad\":\"\",\"provincia\":\"\",\"pais\":\"\",\"version_dnie\":\"\",\"serial_chip\":\"\"},\"integrity\":{\"sod_signature\":\"verified\",\"dg13_hash\":\"verified\"}}'",
+    let engine = fake_engine(
+        FakeBehavior::Stdout(
+            "{\"protocol\":1,\"status\":\"ok\",\"document\":{\"nombre\":\"ANA\",\"primer_apellido\":\"\",\"segundo_apellido\":\"\",\"apellidos\":\"\",\"dni\":\"00000000T\",\"dni_formateado\":\"\",\"fecha_nacimiento\":\"\",\"nacionalidad\":\"\",\"fecha_caducidad\":\"\",\"numero_soporte\":\"\",\"sexo\":\"\",\"ciudad_nacimiento\":\"\",\"provincia_nacimiento\":\"\",\"pais_nacimiento\":\"\",\"nombres_progenitores\":\"\",\"direccion\":\"\",\"localidad\":\"\",\"provincia\":\"\",\"pais\":\"\",\"version_dnie\":\"\",\"serial_chip\":\"\"},\"integrity\":{\"sod_signature\":\"verified\",\"dg13_hash\":\"verified\"}}",
+        ),
         Duration::from_secs(1),
     );
 
@@ -25,7 +28,7 @@ fn process_engine_parses_a_successful_response() {
 
 #[test]
 fn process_engine_rejects_invalid_json() {
-    let error = shell_engine("printf '%s' 'not-json'", Duration::from_secs(1))
+    let error = fake_engine(FakeBehavior::Stdout("not-json"), Duration::from_secs(1))
         .read(&reader())
         .unwrap_err();
 
@@ -35,8 +38,8 @@ fn process_engine_rejects_invalid_json() {
 
 #[test]
 fn process_engine_reports_nonzero_exit_without_stderr_contents() {
-    let error = shell_engine(
-        "printf '%s' 'sensitive DNI 00000000T' >&2; exit 7",
+    let error = fake_engine(
+        FakeBehavior::StderrAndExit("sensitive DNI 00000000T"),
         Duration::from_secs(1),
     )
     .read(&reader())
@@ -48,7 +51,7 @@ fn process_engine_reports_nonzero_exit_without_stderr_contents() {
 
 #[test]
 fn process_engine_has_a_bounded_timeout() {
-    let error = shell_engine("sleep 2", Duration::from_millis(30))
+    let error = fake_engine(FakeBehavior::Sleep, Duration::from_millis(30))
         .read(&reader())
         .unwrap_err();
 
@@ -58,8 +61,10 @@ fn process_engine_has_a_bounded_timeout() {
 
 #[test]
 fn worker_error_messages_are_not_trusted_or_exposed() {
-    let engine = shell_engine(
-        "printf '%s' '{\"protocol\":1,\"status\":\"error\",\"error\":{\"code\":\"CARD_READ_FAILED\",\"message\":\"DNI 00000000T\",\"retryable\":true}}'",
+    let engine = fake_engine(
+        FakeBehavior::Stdout(
+            "{\"protocol\":1,\"status\":\"error\",\"error\":{\"code\":\"CARD_READ_FAILED\",\"message\":\"DNI 00000000T\",\"retryable\":true}}",
+        ),
         Duration::from_secs(1),
     );
 
@@ -68,12 +73,43 @@ fn worker_error_messages_are_not_trusted_or_exposed() {
     assert!(!error.to_string().contains("00000000T"));
 }
 
+enum FakeBehavior {
+    Stdout(&'static str),
+    StderrAndExit(&'static str),
+    Sleep,
+}
+
 #[cfg(unix)]
-fn shell_engine(script: &str, timeout: Duration) -> ProcessEngine {
+fn fake_engine(behavior: FakeBehavior, timeout: Duration) -> ProcessEngine {
+    let script = match behavior {
+        FakeBehavior::Stdout(value) => format!("printf '%s' '{value}'"),
+        FakeBehavior::StderrAndExit(value) => format!("printf '%s' '{value}' >&2; exit 7"),
+        FakeBehavior::Sleep => "sleep 2".to_owned(),
+    };
     ProcessEngine::new("/bin/sh".into(), vec!["-c".into(), script.into()], timeout)
 }
 
 #[cfg(windows)]
-fn shell_engine(script: &str, timeout: Duration) -> ProcessEngine {
-    ProcessEngine::new("cmd.exe".into(), vec!["/C".into(), script.into()], timeout)
+fn fake_engine(behavior: FakeBehavior, timeout: Duration) -> ProcessEngine {
+    let script = match behavior {
+        FakeBehavior::Stdout(value) => {
+            format!("[Console]::Out.Write('{}')", value.replace('\'', "''"))
+        }
+        FakeBehavior::StderrAndExit(value) => format!(
+            "[Console]::Error.Write('{}'); exit 7",
+            value.replace('\'', "''")
+        ),
+        FakeBehavior::Sleep => "Start-Sleep -Seconds 2".to_owned(),
+    };
+    ProcessEngine::new(
+        "powershell.exe".into(),
+        vec![
+            "-NoLogo".into(),
+            "-NoProfile".into(),
+            "-NonInteractive".into(),
+            "-Command".into(),
+            script.into(),
+        ],
+        timeout,
+    )
 }

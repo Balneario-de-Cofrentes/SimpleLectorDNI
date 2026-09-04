@@ -13,7 +13,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & $Maven -q -f engine/jmulticard-worker/pom.xml package
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$Response = '{"protocol":99,"command":"read","reader_index":0}' |
+$Response = '{"protocol":99,"command":"read","reader_name":"Synthetic reader"}' |
     & "$env:JAVA_HOME/bin/java.exe" -jar engine/jmulticard-worker/target/simple-lector-dni-engine.jar |
     ConvertFrom-Json
 

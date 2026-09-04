@@ -4,7 +4,7 @@ Gracias por ayudar a que la lectura de DNIe sea accesible e integrable. Ningún 
 
 ## Entorno
 
-- Rust 1.85 o posterior
+- Rust 1.88 o posterior
 - JDK 21
 - Maven 3.9
 - `jq`, `zip` y `jlink` para empaquetar en macOS
@@ -38,7 +38,10 @@ cargo test --workspace --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
 scripts/check-no-biometric-access.sh
 scripts/check-docs-and-privacy.sh
+cargo about generate about.hbs --workspace --locked --fail -o THIRD_PARTY_LICENSES.html
 ```
+
+El expediente HTML de licencias debe regenerarse y versionarse cuando cambie `Cargo.lock`.
 
 Las funciones deben ser pequeñas, los límites entre PC/SC, worker y salidas deben permanecer explícitos, y los errores públicos no deben filtrar APDU ni contenido del documento.
 

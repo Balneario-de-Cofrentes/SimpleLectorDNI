@@ -10,6 +10,8 @@
 
 Los paquetes publicados incluyen el binario, el worker JMultiCard y un runtime Java mínimo. El sistema debe ofrecer PC/SC. En Windows lo proporciona el servicio de tarjeta inteligente. En macOS forma parte del sistema.
 
+La beta no tiene firma de código ni notarización. Gatekeeper o SmartScreen pueden solicitar confirmación, y un entorno corporativo puede bloquearla. Los checksums permiten verificar la descarga, pero no sustituyen una firma de editor.
+
 ## Matriz física verificada
 
 Prueba realizada el 4 de septiembre de 2026:

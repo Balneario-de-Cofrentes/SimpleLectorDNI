@@ -6,6 +6,7 @@ fn reader(presence: ReaderPresence) -> ReaderInfo {
         index: 0,
         name: "Generic EMV Smartcard Reader".to_owned(),
         presence,
+        event_count: 0,
     }
 }
 
