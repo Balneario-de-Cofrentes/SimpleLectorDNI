@@ -1,0 +1,19 @@
+[package]
+name = "simple-lector-dni-desktop"
+version = "0.1.0"
+description = "Ventana de escritorio para SimpleLectorDNI: estado del lector, última lectura y webhook"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2.6", features = [] }
+
+[dependencies]
+keyring = { version = "4.2", features = ["apple-native-keyring-store", "windows-native-keyring-store"] }
+serde.workspace = true
+serde_json.workspace = true
+simple-lector-dni = { path = "../../crates/simple-lector-dni" }
+tauri = { version = "2.11", features = [] }

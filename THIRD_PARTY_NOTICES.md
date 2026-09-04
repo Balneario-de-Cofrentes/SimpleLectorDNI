@@ -41,3 +41,5 @@ Fuente: <https://adoptium.net/temurin/>
 ## Dependencias Rust
 
 Los nombres, versiones, expresiones de licencia y orígenes resueltos desde `Cargo.lock` se incluyen en `THIRD_PARTY_LICENSES.md`. Los avisos y textos completos detectados por `cargo-about` se incluyen en `THIRD_PARTY_LICENSES.html`. Ambos ficheros forman parte del repositorio y de cada paquete.
+
+La app de escritorio (`apps/desktop`) incorpora, a través de Tauri, crates publicadas bajo MPL-2.0 (`cssparser`, `selectors`, `dtoa-short`, `option-ext`) sin modificaciones. La MPL-2.0 exige conservar su texto y avisos, que el expediente HTML reproduce, y es compatible con la EUPL-1.2 según el anexo de esta.

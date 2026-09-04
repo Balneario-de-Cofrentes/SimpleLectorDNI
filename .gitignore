@@ -7,6 +7,11 @@ target/
 /dist/
 *.class
 
+# Desktop bundle inputs staged by scripts/package-desktop.sh and Tauri schemas.
+/apps/desktop/resources/runtime/
+/apps/desktop/resources/engine/
+/apps/desktop/gen/
+
 # Local prototypes kept outside the public project.
 /DniFullReader.java
 /probe_pcsc

@@ -64,8 +64,20 @@ runs:
       shell: bash
       run: scripts/package-release.sh
 
+    - name: Install Tauri CLI
+      shell: bash
+      run: cargo install tauri-cli --version 2.11.4 --locked
+
+    - name: Package desktop app
+      shell: bash
+      run: scripts/package-desktop.sh
+
     - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: ${{ inputs.artifact-name }}
-        path: dist/*.zip
+        path: |
+          dist/*.zip
+          target/release/bundle/dmg/*.dmg
+          target/release/bundle/msi/*.msi
+          target/release/bundle/nsis/*.exe
         if-no-files-found: error

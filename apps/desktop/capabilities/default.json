@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "La ventana principal escucha el progreso y las lecturas e invoca los comandos de sesión.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

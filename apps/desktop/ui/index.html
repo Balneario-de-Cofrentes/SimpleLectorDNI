@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SimpleLectorDNI</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f5f4f0;
+      --panel: #ffffff;
+      --ink: #1d1c1a;
+      --muted: #6b6963;
+      --line: #dedbd3;
+      --accent: #0f5c4a;
+      --accent-ink: #ffffff;
+      --warn: #8a3b12;
+      --ok: #1c6b3a;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #16171a;
+        --panel: #1f2126;
+        --ink: #ecebe6;
+        --muted: #a09d95;
+        --line: #33363d;
+        --accent: #3fae8f;
+        --accent-ink: #0c1d18;
+        --warn: #e39a6b;
+        --ok: #6ccf8f;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      padding: 20px;
+      display: grid;
+      gap: 16px;
+      user-select: none;
+    }
+    h1 { font-size: 19px; margin: 0; letter-spacing: 0.01em; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 16px;
+      display: grid;
+      gap: 10px;
+    }
+    section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0; }
+    #status { font-size: 24px; font-weight: 600; min-height: 1.5em; line-height: 1.25; }
+    #status.warn { color: var(--warn); }
+    #status.ok { color: var(--ok); }
+    #log { font-size: 12px; color: var(--muted); max-height: 6.5em; overflow-y: auto; margin: 0; padding: 0; list-style: none; }
+    button {
+      font: inherit;
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      cursor: pointer;
+    }
+    button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+    button:disabled { opacity: 0.5; cursor: default; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+    input, select {
+      font: inherit;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      color: var(--ink);
+      min-width: 0;
+    }
+    table { border-collapse: collapse; width: 100%; user-select: text; }
+    td { padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    td:first-child { color: var(--muted); width: 38%; }
+    #empty { color: var(--muted); }
+    .hint { font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SimpleLectorDNI</h1>
+    <div class="row">
+      <button id="start" class="primary">Iniciar</button>
+      <button id="stop" disabled>Detener</button>
+    </div>
+  </header>
+
+  <section>
+    <h2>Estado</h2>
+    <div id="status">Detenido.</div>
+    <ul id="log"></ul>
+  </section>
+
+  <section>
+    <h2>Última lectura</h2>
+    <div id="empty">Todavía no se ha leído ningún DNIe.</div>
+    <table id="record" hidden></table>
+    <div class="row">
+      <button id="copy" hidden>Copiar JSON</button>
+      <button id="clear" hidden>Borrar de la pantalla</button>
+    </div>
+    <p class="hint">La lectura solo vive en esta ventana. No se guarda en disco.</p>
+  </section>
+
+  <section>
+    <h2>Ajustes</h2>
+    <label>Lector
+      <div class="row">
+        <select id="reader"><option value="">Primer lector disponible</option></select>
+        <button id="refresh">Actualizar</button>
+      </div>
+    </label>
+    <label>Webhook (HTTPS)
+      <input id="webhook" type="url" placeholder="https://pms.ejemplo.es/check-in/dni" spellcheck="false">
+    </label>
+    <label>Token del webhook
+      <input id="token" type="password" placeholder="Se guarda en el llavero del sistema" autocomplete="off">
+    </label>
+    <span id="token-state" class="hint"></span>
+    <label>Intentos por inserción
+      <input id="attempts" type="number" min="1" max="3" value="3">
+    </label>
+    <div class="row">
+      <button id="save">Guardar ajustes</button>
+      <span id="saved" class="hint"></span>
+    </div>
+  </section>
+
+  <script>
+    const { invoke } = window.__TAURI__.core;
+    const { listen } = window.__TAURI__.event;
+
+    const el = (id) => document.getElementById(id);
+    const FIELDS = [
+      ['nombre', 'Nombre'], ['apellidos', 'Apellidos'], ['dni', 'DNI'],
+      ['fecha_nacimiento', 'Nacimiento'], ['sexo', 'Sexo'], ['nacionalidad', 'Nacionalidad'],
+      ['numero_soporte', 'Número de soporte'], ['fecha_caducidad', 'Caducidad'],
+      ['direccion', 'Dirección'], ['localidad', 'Localidad'], ['provincia', 'Provincia'],
+      ['pais', 'País'], ['ciudad_nacimiento', 'Lugar de nacimiento'],
+      ['nombres_progenitores', 'Progenitores'], ['version_dnie', 'Versión DNIe'],
+    ];
+    let lastRecord = null;
+
+    function setStatus(text, tone) {
+      const status = el('status');
+      status.textContent = text;
+      status.className = tone || '';
+    }
+
+    function appendLog(text) {
+      const log = el('log');
+      const item = document.createElement('li');
+      item.textContent = new Date().toLocaleTimeString('es-ES') + '  ' + text;
+      log.prepend(item);
+      while (log.children.length > 8) log.removeChild(log.lastChild);
+    }
+
+    function showRecord(record) {
+      lastRecord = record;
+      const table = el('record');
+      table.replaceChildren();
+      const rows = [
+        ['Leído', new Date(record.read_at).toLocaleString('es-ES')],
+        ['Lector', record.reader],
+        ['Integridad', `SOD ${record.integrity.sod_signature}, DG13 ${record.integrity.dg13_hash}`],
+        ...FIELDS.map(([key, label]) => [label, record.document[key] || '—']),
+      ];
+      for (const [label, value] of rows) {
+        const tr = document.createElement('tr');
+        const th = document.createElement('td');
+        const td = document.createElement('td');
+        th.textContent = label;
+        td.textContent = value;
+        tr.append(th, td);
+        table.append(tr);
+      }
+      el('empty').hidden = true;
+      table.hidden = false;
+      el('copy').hidden = false;
+      el('clear').hidden = false;
+    }
+
+    function clearRecord() {
+      lastRecord = null;
+      el('record').replaceChildren();
+      el('record').hidden = true;
+      el('empty').hidden = false;
+      el('copy').hidden = true;
+      el('clear').hidden = true;
+    }
+
+    function setRunning(running) {
+      el('start').disabled = running;
+      el('stop').disabled = !running;
+      el('save').disabled = running;
+    }
+
+    async function refreshReaders() {
+      const select = el('reader');
+      const current = select.value;
+      try {
+        const readers = await invoke('list_readers');
+        select.replaceChildren(new Option('Primer lector disponible', ''));
+        for (const reader of readers) {
+          select.append(new Option(`${reader.name} (${reader.presence})`, reader.name));
+        }
+        select.value = current;
+      } catch (error) {
+        appendLog(`No se pudieron listar los lectores: ${error}`);
+      }
+    }
+
+    async function loadSettings() {
+      const settings = await invoke('load_settings');
+      el('reader').value = settings.reader || '';
+      el('webhook').value = settings.webhook_url || '';
+      el('attempts').value = settings.attempts || 3;
+      el('token-state').textContent = settings.has_webhook_token
+        ? 'Hay un token guardado. Escribe uno nuevo para sustituirlo o un espacio para borrarlo.'
+        : 'Sin token guardado.';
+    }
+
+    async function saveSettings() {
+      const settings = {
+        reader: el('reader').value,
+        webhook_url: el('webhook').value.trim(),
+        attempts: Number(el('attempts').value) || 3,
+      };
+      const rawToken = el('token').value;
+      const webhookToken = rawToken === '' ? null : rawToken.trim();
+      try {
+        const view = await invoke('save_settings', { settings, webhookToken });
+        el('token').value = '';
+        el('token-state').textContent = view.has_webhook_token ? 'Hay un token guardado.' : 'Sin token guardado.';
+        el('saved').textContent = 'Guardado.';
+        setTimeout(() => { el('saved').textContent = ''; }, 2500);
+      } catch (error) {
+        el('saved').textContent = `Error: ${error}`;
+      }
+    }
+
+    async function start() {
+      try {
+        await invoke('start_session');
+        setRunning(true);
+        setStatus('Iniciando...');
+      } catch (error) {
+        setStatus(`No se pudo iniciar: ${error}`, 'warn');
+      }
+    }
+
+    async function stop() {
+      el('stop').disabled = true;
+      await invoke('stop_session');
+      setRunning(false);
+      setStatus('Detenido.');
+    }
+
+    listen('progress', ({ payload }) => {
+      const tone = payload.kind === 'delivered' ? 'ok'
+        : ['read_failed', 'output_failed', 'monitor_failed'].includes(payload.kind) ? 'warn'
+        : '';
+      setStatus(payload.text, tone);
+      if (['reading', 'delivered', 'read_failed', 'output_failed', 'monitor_failed', 'monitor_recovered'].includes(payload.kind)) {
+        appendLog(payload.text);
+      }
+    });
+    listen('read', ({ payload }) => showRecord(payload));
+    listen('session_ended', ({ payload }) => {
+      setRunning(false);
+      if (payload.error) {
+        setStatus(`Sesión terminada: ${payload.error}`, 'warn');
+        appendLog(payload.error);
+      } else {
+        setStatus('Detenido.');
+      }
+    });
+
+    el('start').addEventListener('click', start);
+    el('stop').addEventListener('click', stop);
+    el('refresh').addEventListener('click', refreshReaders);
+    el('save').addEventListener('click', saveSettings);
+    el('copy').addEventListener('click', async () => {
+      if (lastRecord) await navigator.clipboard.writeText(JSON.stringify(lastRecord, null, 2));
+    });
+    el('clear').addEventListener('click', clearRecord);
+
+    (async () => {
+      await refreshReaders();
+      await loadSettings();
+      setRunning(await invoke('is_running'));
+    })();
+  </script>
+</body>
+</html>

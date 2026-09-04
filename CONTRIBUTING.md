@@ -9,6 +9,7 @@ Gracias por ayudar a que la lectura de DNIe sea accesible e integrable. Ningún 
 - Maven 3.9
 - `jq`, `ripgrep` y `jlink` para empaquetar; `zip` en macOS o `7z` en Windows
 - Git Bash en Windows: todos los scripts son `sh`
+- `cargo install tauri-cli --version 2.11.4 --locked` para la app de escritorio
 
 ```sh
 git clone --recurse-submodules https://github.com/Balneario-de-Cofrentes/SimpleLectorDNI.git
@@ -17,7 +18,10 @@ cargo test --workspace --locked
 mvn -f engine/jmulticard-worker/pom.xml test
 scripts/build-worker.sh
 scripts/package-release.sh
+scripts/package-desktop.sh
 ```
+
+`cargo test` sin `--workspace` cubre solo el crate; la app de escritorio se compila con `cargo test --workspace` o `cargo build -p simple-lector-dni-desktop`. Para ejecutarla en desarrollo, `scripts/package-desktop.sh` deja los recursos en `apps/desktop/resources` y después `cd apps/desktop && cargo tauri dev`.
 
 Si el repositorio ya estaba clonado sin submódulos:
 

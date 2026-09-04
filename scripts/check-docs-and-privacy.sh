@@ -34,6 +34,7 @@ rg -q '573057d03584ae793fb7ec9a14c76d826d9187a53efeefd99da47403a5308234' \
 rg -q 'simple-lector-dni once' README.md
 rg -q 'simple-lector-dni watch' README.md
 rg -q 'simple-lector-dni list-readers' README.md
+rg -q 'package-desktop.sh' README.md CONTRIBUTING.md
 rg -q -- '--jsonl' docs/INTEGRATION.md
 rg -q -- '--webhook' docs/INTEGRATION.md
 rg -q -- '--timeout-seconds' docs/INTEGRATION.md
