@@ -9,9 +9,12 @@ response=$(
     "$java_binary" -jar "$worker_jar"
 )
 
-printf '%s' "$response" | jq -e '
+if ! printf '%s' "$response" | jq -e '
   .protocol == 1 and
   .status == "error" and
   .error.code == "INVALID_REQUEST" and
   .error.retryable == false
-' >/dev/null
+' >/dev/null; then
+  echo "worker smoke test failed, response was: $response" >&2
+  exit 1
+fi
