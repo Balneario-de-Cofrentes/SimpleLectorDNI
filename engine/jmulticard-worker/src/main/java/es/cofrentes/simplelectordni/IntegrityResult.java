@@ -1,3 +1,3 @@
 package es.cofrentes.simplelectordni;
 
-record IntegrityResult(String sod_signature, String dg13_hash) {}
+record IntegrityResult(VerificationStatus sod_signature, VerificationStatus dg13_hash) {}

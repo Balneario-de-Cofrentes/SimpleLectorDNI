@@ -29,8 +29,25 @@ pub struct DocumentData {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct IntegrityResult {
-    pub sod_signature: String,
-    pub dg13_hash: String,
+    pub sod_signature: VerificationStatus,
+    pub dg13_hash: VerificationStatus,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VerificationStatus {
+    Verified,
+    Unverified,
+}
+
+impl VerificationStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Verified => "verified",
+            Self::Unverified => "unverified",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

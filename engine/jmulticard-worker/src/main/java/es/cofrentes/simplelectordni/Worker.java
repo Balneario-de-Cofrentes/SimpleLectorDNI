@@ -34,7 +34,7 @@ public final class Worker {
             return failure("INVALID_REQUEST", "invalid engine request", false);
         }
         catch (final DniReadException e) {
-            return failure(e.code(), publicMessage(e.code()), e.retryable());
+            return failure(e.error());
         }
         catch (final Exception e) {
             return failure("INTERNAL_ERROR", "unexpected engine error", true);
@@ -66,25 +66,13 @@ public final class Worker {
             new FailureResponse(
                 PROTOCOL_VERSION,
                 "error",
-                new SafeError(safeCode(code), message, retryable)
+                new SafeError(code, message, retryable)
             )
         );
     }
 
-    private static String safeCode(final String code) {
-        if (code != null && code.matches("[A-Z_]{1,64}")) {
-            return code;
-        }
-        return "INTERNAL_ERROR";
-    }
-
-    private static String publicMessage(final String code) {
-        return switch (code) {
-            case "UNSUPPORTED_CARD" -> "unsupported smart card";
-            case "READER_NOT_FOUND" -> "configured reader is unavailable";
-            case "INTEGRITY_ERROR" -> "DNIe integrity verification failed";
-            default -> "DNIe read failed";
-        };
+    private static String failure(final DniErrorCode error) {
+        return failure(error.name(), error.publicMessage(), error.retryable());
     }
 
     private static String serialize(final Object value) {

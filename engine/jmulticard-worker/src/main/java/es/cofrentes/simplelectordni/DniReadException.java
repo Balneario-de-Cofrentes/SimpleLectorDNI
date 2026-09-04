@@ -1,25 +1,18 @@
 package es.cofrentes.simplelectordni;
 
 final class DniReadException extends Exception {
-    private final String code;
-    private final boolean retryable;
+    private final DniErrorCode error;
 
-    DniReadException(
-        final String code,
-        final String safeMessage,
-        final boolean retryable,
-        final Throwable cause
-    ) {
-        super(safeMessage, cause);
-        this.code = code;
-        this.retryable = retryable;
+    DniReadException(final DniErrorCode error) {
+        this(error, null);
     }
 
-    String code() {
-        return code;
+    DniReadException(final DniErrorCode error, final Throwable cause) {
+        super(error.publicMessage(), cause);
+        this.error = error;
     }
 
-    boolean retryable() {
-        return retryable;
+    DniErrorCode error() {
+        return error;
     }
 }

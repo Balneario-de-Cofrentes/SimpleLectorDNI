@@ -4,6 +4,7 @@ use simple_lector_dni::engine::{DniEngine, ProcessEngine};
 use simple_lector_dni::reader::{ReaderInfo, ReaderPresence};
 
 const NORMAL_PROCESS_TIMEOUT: Duration = Duration::from_secs(10);
+const SUCCESS_RESPONSE: &str = include_str!("../../../protocol/examples/success.json");
 
 fn reader() -> ReaderInfo {
     ReaderInfo {
@@ -17,9 +18,7 @@ fn reader() -> ReaderInfo {
 #[test]
 fn process_engine_parses_a_successful_response() {
     let engine = fake_engine(
-        FakeBehavior::Stdout(
-            "{\"protocol\":1,\"status\":\"ok\",\"document\":{\"nombre\":\"ANA\",\"primer_apellido\":\"\",\"segundo_apellido\":\"\",\"apellidos\":\"\",\"dni\":\"00000000T\",\"dni_formateado\":\"\",\"fecha_nacimiento\":\"\",\"nacionalidad\":\"\",\"fecha_caducidad\":\"\",\"numero_soporte\":\"\",\"sexo\":\"\",\"ciudad_nacimiento\":\"\",\"provincia_nacimiento\":\"\",\"pais_nacimiento\":\"\",\"nombres_progenitores\":\"\",\"direccion\":\"\",\"localidad\":\"\",\"provincia\":\"\",\"pais\":\"\",\"version_dnie\":\"\",\"serial_chip\":\"\"},\"integrity\":{\"sod_signature\":\"verified\",\"dg13_hash\":\"verified\"}}",
-        ),
+        FakeBehavior::Stdout(SUCCESS_RESPONSE),
         NORMAL_PROCESS_TIMEOUT,
     );
 

@@ -4,17 +4,14 @@ set -eu
 package_dir=${1:?"usage: verify-release-package.sh <package-directory>"}
 
 test -f "$package_dir/simple-lector-dni" || test -f "$package_dir/simple-lector-dni.exe"
-test -f "$package_dir/.java-version"
 test -f "$package_dir/engine/simple-lector-dni-engine.jar"
 test -f "$package_dir/runtime/bin/java" || test -f "$package_dir/runtime/bin/java.exe"
-test -f "$package_dir/LICENSE"
-test -f "$package_dir/THIRD_PARTY_NOTICES.md"
-test -f "$package_dir/THIRD_PARTY_LICENSES.md"
-test -f "$package_dir/THIRD_PARTY_LICENSES.html"
-test -f "$package_dir/README.md"
-test -f "$package_dir/RUNTIME_SOURCE.md"
 test -f "$package_dir/runtime/release"
-test -f "$package_dir/protocol/engine-v1.schema.json"
+
+while IFS= read -r path; do
+  test -n "$path" || continue
+  test -f "$package_dir/$path"
+done < scripts/release-files.txt
 
 expected_java_version=$(tr -d '\r\n' < "$package_dir/.java-version" | sed 's/+.*$//')
 rg -Fqx "JAVA_VERSION=\"$expected_java_version\"" "$package_dir/runtime/release"

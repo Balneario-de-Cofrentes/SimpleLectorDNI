@@ -6,7 +6,7 @@ use clap::Parser;
 use simple_lector_dni::app::execute_read_cycle;
 use simple_lector_dni::cli::{Cli, Command};
 use simple_lector_dni::engine::{DniEngine, EngineFailure, EngineRead};
-use simple_lector_dni::engine_protocol::{DocumentData, IntegrityResult};
+use simple_lector_dni::engine_protocol::{DocumentData, IntegrityResult, VerificationStatus};
 use simple_lector_dni::model::ReadRecord;
 use simple_lector_dni::output::{OutputError, Sink};
 use simple_lector_dni::reader::{ReaderInfo, ReaderPresence};
@@ -91,8 +91,8 @@ impl DniEngine for SucceedsOnThird {
                 ..DocumentData::default()
             },
             integrity: IntegrityResult {
-                sod_signature: "verified".to_owned(),
-                dg13_hash: "verified".to_owned(),
+                sod_signature: VerificationStatus::Verified,
+                dg13_hash: VerificationStatus::Verified,
             },
         })
     }
