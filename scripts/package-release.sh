@@ -43,12 +43,13 @@ package_dir="$temporary_root/$package_name"
 mkdir -p "$package_dir/engine"
 cp "target/release/$binary" "$package_dir/$binary"
 cp engine/jmulticard-worker/target/simple-lector-dni-engine.jar "$package_dir/engine/"
-while IFS= read -r source; do
+# Manifests are read through tr so a CRLF checkout on Windows cannot corrupt paths.
+tr -d '\r' < scripts/release-files.txt | while IFS= read -r source; do
   test -n "$source" || continue
   destination="$package_dir/$source"
   mkdir -p "$(dirname -- "$destination")"
   cp "$source" "$destination"
-done < scripts/release-files.txt
+done
 
 runtime_modules=$(tr -d '\r\n' < scripts/runtime-modules.txt)
 

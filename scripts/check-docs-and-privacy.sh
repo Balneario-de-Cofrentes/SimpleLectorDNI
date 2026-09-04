@@ -20,10 +20,10 @@ do
   test -s "$path"
 done
 
-while IFS= read -r path; do
+tr -d '\r' < scripts/release-files.txt | while IFS= read -r path; do
   test -n "$path" || continue
   test -f "$path"
-done < scripts/release-files.txt
+done
 
 rg -q 'Licencias Rust de terceros' THIRD_PARTY_LICENSES.html
 test "$(tr -d '\r\n' < .java-version)" = '21.0.12.1+1'
