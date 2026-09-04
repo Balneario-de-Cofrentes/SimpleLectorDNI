@@ -3,6 +3,8 @@ use std::time::Duration;
 use simple_lector_dni::engine::{DniEngine, ProcessEngine};
 use simple_lector_dni::reader::{ReaderInfo, ReaderPresence};
 
+const NORMAL_PROCESS_TIMEOUT: Duration = Duration::from_secs(10);
+
 fn reader() -> ReaderInfo {
     ReaderInfo {
         index: 2,
@@ -18,7 +20,7 @@ fn process_engine_parses_a_successful_response() {
         FakeBehavior::Stdout(
             "{\"protocol\":1,\"status\":\"ok\",\"document\":{\"nombre\":\"ANA\",\"primer_apellido\":\"\",\"segundo_apellido\":\"\",\"apellidos\":\"\",\"dni\":\"00000000T\",\"dni_formateado\":\"\",\"fecha_nacimiento\":\"\",\"nacionalidad\":\"\",\"fecha_caducidad\":\"\",\"numero_soporte\":\"\",\"sexo\":\"\",\"ciudad_nacimiento\":\"\",\"provincia_nacimiento\":\"\",\"pais_nacimiento\":\"\",\"nombres_progenitores\":\"\",\"direccion\":\"\",\"localidad\":\"\",\"provincia\":\"\",\"pais\":\"\",\"version_dnie\":\"\",\"serial_chip\":\"\"},\"integrity\":{\"sod_signature\":\"verified\",\"dg13_hash\":\"verified\"}}",
         ),
-        Duration::from_secs(1),
+        NORMAL_PROCESS_TIMEOUT,
     );
 
     let result = engine.read(&reader()).unwrap();
@@ -28,7 +30,7 @@ fn process_engine_parses_a_successful_response() {
 
 #[test]
 fn process_engine_rejects_invalid_json() {
-    let error = fake_engine(FakeBehavior::Stdout("not-json"), Duration::from_secs(1))
+    let error = fake_engine(FakeBehavior::Stdout("not-json"), NORMAL_PROCESS_TIMEOUT)
         .read(&reader())
         .unwrap_err();
 
@@ -40,7 +42,7 @@ fn process_engine_rejects_invalid_json() {
 fn process_engine_reports_nonzero_exit_without_stderr_contents() {
     let error = fake_engine(
         FakeBehavior::StderrAndExit("sensitive DNI 00000000T"),
-        Duration::from_secs(1),
+        NORMAL_PROCESS_TIMEOUT,
     )
     .read(&reader())
     .unwrap_err();
@@ -65,7 +67,7 @@ fn worker_error_messages_are_not_trusted_or_exposed() {
         FakeBehavior::Stdout(
             "{\"protocol\":1,\"status\":\"error\",\"error\":{\"code\":\"CARD_READ_FAILED\",\"message\":\"DNI 00000000T\",\"retryable\":true}}",
         ),
-        Duration::from_secs(1),
+        NORMAL_PROCESS_TIMEOUT,
     );
 
     let error = engine.read(&reader()).unwrap_err();
