@@ -38,6 +38,7 @@ fn options() -> SessionOptions {
 /// never spin forever.
 struct ScriptedMonitor {
     initial: Vec<ReaderInfo>,
+    initial_failure: Option<ReaderError>,
     ticks: VecDeque<Result<Vec<ReaderEvent>, ReaderError>>,
     recoveries: VecDeque<Result<Vec<ReaderInfo>, ReaderError>>,
 }
@@ -46,9 +47,15 @@ impl ScriptedMonitor {
     fn new(initial: Vec<ReaderInfo>, ticks: Vec<Result<Vec<ReaderEvent>, ReaderError>>) -> Self {
         Self {
             initial,
+            initial_failure: None,
             ticks: ticks.into(),
             recoveries: VecDeque::new(),
         }
+    }
+
+    fn failing_first(mut self, error: ReaderError) -> Self {
+        self.initial_failure = Some(error);
+        self
     }
 
     fn recovering_with(mut self, readers: Vec<ReaderInfo>) -> Self {
@@ -59,7 +66,10 @@ impl ScriptedMonitor {
 
 impl ReaderMonitor for ScriptedMonitor {
     fn initialise(&mut self) -> Result<Vec<ReaderInfo>, ReaderError> {
-        Ok(self.initial.clone())
+        match self.initial_failure.take() {
+            Some(error) => Err(error),
+            None => Ok(self.initial.clone()),
+        }
     }
 
     fn wait_for_events(&mut self, _: Duration) -> Result<Vec<ReaderEvent>, ReaderError> {
@@ -387,6 +397,40 @@ fn progress_serialises_with_a_kind_tag_for_windows_and_sockets() {
         serde_json::to_value(Progress::Idle).unwrap()["kind"],
         "idle"
     );
+}
+
+#[test]
+fn a_pcsc_failure_before_the_first_snapshot_is_recovered_like_any_other() {
+    let present = reader(ReaderPresence::Present);
+    let mut monitor = ScriptedMonitor::new(vec![], vec![])
+        .failing_first(ReaderError::Pcsc(pcsc::Error::ReaderUnavailable))
+        .recovering_with(vec![present]);
+    let engine = CountingEngine::default();
+    let sink = CountingSink::default();
+    let mut events = Vec::new();
+
+    run_session(
+        &mut monitor,
+        None,
+        &engine,
+        &[&sink],
+        &options(),
+        SessionMode::Watch,
+        &mut |progress| {
+            let done = matches!(progress, Progress::Delivered { .. });
+            events.push(progress);
+            if done {
+                ControlFlow::Break(())
+            } else {
+                ControlFlow::Continue(())
+            }
+        },
+    )
+    .unwrap();
+
+    assert_eq!(sink.0.load(Ordering::SeqCst), 1);
+    assert!(matches!(events[0], Progress::MonitorFailed { .. }));
+    assert!(events.contains(&Progress::MonitorRecovered));
 }
 
 #[test]

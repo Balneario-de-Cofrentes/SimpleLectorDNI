@@ -144,9 +144,35 @@ impl PcscMonitor {
             .iter()
             .map(|name| ReaderState::new(name.as_c_str(), State::UNAWARE))
             .collect();
-        self.context
-            .get_status_change(Duration::ZERO, &mut states)?;
-        Ok(to_reader_info(&states))
+        match self.context.get_status_change(Duration::ZERO, &mut states) {
+            Ok(()) => Ok(to_reader_info(&states)),
+            // One reader that vanished or is still initialising fails the whole query
+            // (SCARD_E_READER_UNAVAILABLE / SCARD_E_UNKNOWN_READER). Ask one by one so
+            // the others keep working and that one shows as unavailable.
+            Err(pcsc::Error::ReaderUnavailable | pcsc::Error::UnknownReader) => {
+                Ok(self.snapshot_one_by_one(&names))
+            }
+            Err(error) => Err(error.into()),
+        }
+    }
+
+    fn snapshot_one_by_one(&self, names: &[std::ffi::CString]) -> Vec<ReaderInfo> {
+        names
+            .iter()
+            .enumerate()
+            .map(|(index, name)| {
+                let mut state = [ReaderState::new(name.as_c_str(), State::UNAWARE)];
+                match self.context.get_status_change(Duration::ZERO, &mut state) {
+                    Ok(()) => reader_info(index, &state[0]),
+                    Err(_) => ReaderInfo {
+                        index,
+                        name: name.to_string_lossy().into_owned(),
+                        presence: ReaderPresence::Unavailable,
+                        event_count: 0,
+                    },
+                }
+            })
+            .collect()
     }
 }
 
@@ -175,13 +201,17 @@ fn to_reader_info(states: &[ReaderState]) -> Vec<ReaderInfo> {
     states
         .iter()
         .enumerate()
-        .map(|(index, state)| ReaderInfo {
-            index,
-            name: state.name().to_string_lossy().into_owned(),
-            presence: classify_state(state.event_state()),
-            event_count: state.event_count(),
-        })
+        .map(|(index, state)| reader_info(index, state))
         .collect()
+}
+
+fn reader_info(index: usize, state: &ReaderState) -> ReaderInfo {
+    ReaderInfo {
+        index,
+        name: state.name().to_string_lossy().into_owned(),
+        presence: classify_state(state.event_state()),
+        event_count: state.event_count(),
+    }
 }
 
 #[must_use]

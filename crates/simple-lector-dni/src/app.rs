@@ -243,7 +243,13 @@ pub fn run_session(
     mode: SessionMode,
     report: &mut ProgressSink<'_>,
 ) -> Result<(), AppError> {
-    let readers = monitor.initialise()?;
+    // A PC/SC failure before the first snapshot is the same event as one during the
+    // loop (service down, reader initialising): recover instead of giving up.
+    let (readers, initial_failure) = match monitor.initialise() {
+        Ok(readers) => (readers, None),
+        Err(error @ ReaderError::Pcsc(_)) => (Vec::new(), Some(error)),
+        Err(error) => return Err(error.into()),
+    };
     let mut session = Session {
         controller: WatchController::new(&readers, pattern)?,
         engine,
@@ -254,7 +260,7 @@ pub fn run_session(
         started: Instant::now(),
         last_status: None,
     };
-    session.run(monitor)
+    session.run(monitor, initial_failure)
 }
 
 struct Session<'a> {
@@ -269,8 +275,16 @@ struct Session<'a> {
 }
 
 impl Session<'_> {
-    fn run(&mut self, monitor: &mut dyn ReaderMonitor) -> Result<(), AppError> {
-        if self.announce_status().is_break() {
+    fn run(
+        &mut self,
+        monitor: &mut dyn ReaderMonitor,
+        initial_failure: Option<ReaderError>,
+    ) -> Result<(), AppError> {
+        if let Some(error) = initial_failure {
+            if self.recover(monitor, &error)?.is_break() {
+                return Ok(());
+            }
+        } else if self.announce_status().is_break() {
             return Ok(());
         }
         if let Some(reader) = self.controller.initial_read()
