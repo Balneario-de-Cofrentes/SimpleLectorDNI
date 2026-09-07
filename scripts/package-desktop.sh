@@ -16,6 +16,9 @@ rm -rf "$resources/runtime" "$resources/engine"
 mkdir -p "$resources/engine"
 cp engine/jmulticard-worker/target/simple-lector-dni-engine.jar "$resources/engine/"
 build_runtime "$resources/runtime"
+# jlink leaves its legal texts read-only; writable files let users strip the quarantine
+# flag from an unsigned bundle with a plain xattr -dr.
+chmod -R u+w "$resources/runtime"
 scripts/verify-worker-package.sh \
   "$resources/runtime/bin/java$exe" \
   "$resources/engine/simple-lector-dni-engine.jar"
