@@ -23,4 +23,8 @@ scripts/verify-worker-package.sh \
   "$resources/runtime/bin/java$exe" \
   "$resources/engine/simple-lector-dni-engine.jar"
 
+# tauri-build copies the resources into target/; copies from an earlier build may be
+# read-only and would make the next copy fail with "Permission denied".
+chmod -R u+w target/release/resources target/debug/resources 2>/dev/null || true
+
 (cd apps/desktop && cargo tauri build "$@")
